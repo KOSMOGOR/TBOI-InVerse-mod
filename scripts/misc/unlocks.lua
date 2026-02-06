@@ -128,7 +128,7 @@ mod:AddCallback(ModCallbacks.MC_POST_NEW_LEVEL, function()
 end) ]]
 
 mod:AddCallback(ModCallbacks.MC_POST_NPC_DEATH, function(npc)
-    if npc.Type == EntityType.ENTITY_DELIRIUM and mod.CharaterInGame(mod.PLAYER_DREAM) then
+    if npc.Type == EntityType.ENTITY_DELIRIUM and mod.CharacterInGame(mod.PLAYER_DREAM) then
         mod.Data.GlobalData.ItemsCanSpawn["Dream's Handbag"] = true
         ShowAchievment("Dream's Handbag")
     end

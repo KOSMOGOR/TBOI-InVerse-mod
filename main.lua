@@ -191,7 +191,7 @@ function mod.AddItemForRoom(player, item)
     table.insert(mod.Data.Players[num].ItemsRemoveNextRoom, item)
 end
 
-function mod.CharaterInGame(charType)
+function mod.CharacterInGame(charType)
     for i = 0, Game():GetNumPlayers() - 1 do
         if Isaac.GetPlayer(i):GetPlayerType() == charType then
             return true

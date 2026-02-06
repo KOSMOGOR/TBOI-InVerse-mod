@@ -554,8 +554,8 @@ function callbacks:OnNewRoom()
                 for j, _ in pairs(mod.Data.GlobalData.CardsCanSpawn) do table.insert(cards, Isaac.GetCardIdByName(j)) end
                 if player:HasCollectible(CollectibleType.COLLECTIBLE_MOMS_BOX) and #cards ~= 0 then
                     local entities = Game():GetRoom():GetEntities()
-                    for i = 0, #entities - 1 do
-                        local ent = entities:Get(i)
+                    for i1 = 0, #entities - 1 do
+                        local ent = entities:Get(i1)
                         if ent.Type == EntityType.ENTITY_PICKUP and ent.Variant == PickupVariant.PICKUP_TAROTCARD and not IsMomentuumCard(ent.SubType) then
                             ent:ToPickup():Morph(EntityType.ENTITY_PICKUP, PickupVariant.PICKUP_TAROTCARD, cards[mod.rand(1, #cards)], true, false, true)
                             Isaac.Spawn(1000, EffectVariant.POOF01, 0, ent.Position, Vector.Zero, nil)
@@ -608,12 +608,6 @@ function callbacks:OnUseCard(card, player, flags)
     elseif cardName == "Momentuum: II - The High Priestess" then
         mod.Data.Players[num].Priestess = Game():GetFrameCount()
     elseif cardName == "Momentuum: IV - The Emperor" then
-        --[[player:AddCollectible(CollectibleType.COLLECTIBLE_THERES_OPTIONS)
-        player:AddCollectible(CollectibleType.COLLECTIBLE_EUCHARIST)
-        player:AddCollectible(CollectibleType.COLLECTIBLE_DUALITY)
-        table.insert(mod.Data.Players[num].ItemsRemoveNextFloor, CollectibleType.COLLECTIBLE_THERES_OPTIONS)
-        table.insert(mod.Data.Players[num].ItemsRemoveNextFloor, CollectibleType.COLLECTIBLE_EUCHARIST)
-        table.insert(mod.Data.Players[num].ItemsRemoveNextFloor, CollectibleType.COLLECTIBLE_DUALITY)]]
         mod.AddItemForFloor(player, CollectibleType.COLLECTIBLE_THERES_OPTIONS)
         mod.AddItemForFloor(player, CollectibleType.COLLECTIBLE_EUCHARIST)
         mod.AddItemForFloor(player, CollectibleType.COLLECTIBLE_DUALITY)
@@ -680,7 +674,7 @@ function callbacks:OnUseCard(card, player, flags)
         player:AddBombs(m - player:GetNumBombs())
         player:AddKeys(m - player:GetNumKeys())
         if player:HasCollectible(CollectibleType.COLLECTIBLE_TAROT_CLOTH) then
-            player:AddHearts(m)
+            player:AddHearts(m - player:GetHearts())
         end
     elseif cardName == "Momentuum: X - Wheel of Fortune" then
         player:AddCollectible(CollectibleType.COLLECTIBLE_D_INFINITY)
@@ -693,12 +687,6 @@ function callbacks:OnUseCard(card, player, flags)
         local h = mod._if(player:HasCollectible(CollectibleType.COLLECTIBLE_TAROT_CLOTH), 6, 4)
         player:AddMaxHearts(h, true)
         player:AddHearts(h)
-        --[[player:AddCollectible(mod.NULL_STRENGTH)
-        player:AddCollectible(CollectibleType.COLLECTIBLE_WAFER)
-        player:AddCollectible(CollectibleType.COLLECTIBLE_BLOODY_LUST)
-        table.insert(mod.Data.Players[num].ItemsRemoveNextRoom, mod.NULL_STRENGTH)
-        table.insert(mod.Data.Players[num].ItemsRemoveNextRoom, CollectibleType.COLLECTIBLE_WAFER)
-        table.insert(mod.Data.Players[num].ItemsRemoveNextRoom, CollectibleType.COLLECTIBLE_BLOODY_LUST)]]
         mod.AddItemForRoom(player, mod.NULL_STRENGTH)
         mod.AddItemForRoom(player, CollectibleType.COLLECTIBLE_WAFER)
         mod.AddItemForRoom(player, CollectibleType.COLLECTIBLE_BLOODY_LUST)
@@ -706,8 +694,6 @@ function callbacks:OnUseCard(card, player, flags)
     elseif cardName == "Momentuum: XII - The Hanged Man" then
         mod.AddTrinketAsItem(player, TrinketType.TRINKET_FLAT_FILE)
         table.insert(mod.Data.Players[num].TrinketsRemoveNextFloor, TrinketType.TRINKET_FLAT_FILE)
-        --[[player:AddCollectible(CollectibleType.COLLECTIBLE_TRANSCENDENCE)
-        table.insert(mod.Data.Players[num].ItemsRemoveNextFloor, CollectibleType.COLLECTIBLE_TRANSCENDENCE)]]
         mod.AddItemForRoom(player, CollectibleType.COLLECTIBLE_TRANSCENDENCE)
         mod.Data.Players[num].HangedMan = true
         player:AddCacheFlags(CacheFlag.CACHE_TEARFLAG | CacheFlag.CACHE_TEARCOLOR)
@@ -726,19 +712,11 @@ function callbacks:OnUseCard(card, player, flags)
         mod.Data.Players[num].Temperance = true
     elseif cardName == "Momentuum: XVI - The Tower" then
         mod.Data.Players[num].Tower = 0
-        --[[player:AddCollectible(CollectibleType.COLLECTIBLE_HOST_HAT)
-        table.insert(mod.Data.Players[num].ItemsRemoveNextRoom, CollectibleType.COLLECTIBLE_HOST_HAT)]]
         mod.AddItemForRoom(player, CollectibleType.COLLECTIBLE_HOST_HAT)
     elseif cardName == "Momentuum: XVII - The Stars" then
-        --[[player:AddCollectible(CollectibleType.COLLECTIBLE_SACRED_ORB)
-        player:AddCollectible(CollectibleType.COLLECTIBLE_GLITCHED_CROWN)
-        table.insert(mod.Data.Players[num].ItemsRemoveNextRoom, CollectibleType.COLLECTIBLE_SACRED_ORB)
-        table.insert(mod.Data.Players[num].ItemsRemoveNextRoom, CollectibleType.COLLECTIBLE_GLITCHED_CROWN)]]
         mod.AddItemForRoom(player, CollectibleType.COLLECTIBLE_SACRED_ORB)
         mod.AddItemForRoom(player, CollectibleType.COLLECTIBLE_GLITCHED_CROWN)
         if player:HasCollectible(CollectibleType.COLLECTIBLE_TAROT_CLOTH) then
-            --[[player:AddCollectible(CollectibleType.COLLECTIBLE_MORE_OPTIONS)
-            table.insert(mod.Data.Players[num].ItemsRemoveNextRoom, CollectibleType.COLLECTIBLE_MORE_OPTIONS)]]
             mod.AddItemForRoom(player, CollectibleType.COLLECTIBLE_MORE_OPTIONS)
         end
         player:UseCard(Card.CARD_STARS, UseFlag.USE_NOANIM | UseFlag.USE_NOANNOUNCER)

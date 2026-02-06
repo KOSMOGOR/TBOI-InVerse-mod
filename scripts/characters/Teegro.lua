@@ -12,7 +12,7 @@ local RenderSincePickup = 0
 
 local locked = {}
 
-function callbacks:SetDefaultValues(player) -- Set Defaul Values
+function callbacks:SetDefaultValues(player)
     if not mod.Data.Teegro then
         mod.Data.Teegro = {
             checkedItems = {},
@@ -216,13 +216,14 @@ end
 mod:AddCallback(ModCallbacks.MC_POST_UPDATE, callbacks.UpdateChainsAndPrice)
 
 function callbacks:OnPickupInit(pickup)
-    if not mod.CharaterInGame(mod.PLAYER_TEEGRO) then return end
+    if not mod.CharacterInGame(mod.PLAYER_TEEGRO) then return end
     if Game():GetLevel():GetCurrentRoomDesc().GridIndex == GridRooms.ROOM_GENESIS_IDX then return end
     if GetDimension() == 2 then return end
     local ind = GetPickupInd(pickup)
     if pickup.Variant == 100 and mod.CharaterHasTrinket(TrinketType.TRINKET_STORE_CREDIT) then return end
     if mod.Data.Teegro.checkedItems[ind] and pickup.Variant == 100 and (mod.Data.Teegro.checkedItems[ind].SubType ~= pickup.SubType or mod.Data.Teegro.checkedItems[ind].Variant ~= 100) then
         mod.Data.Teegro.checkedItems[ind] = nil
+        print("reset check")
     end
     if mod.Data.Teegro.lockedItems[ind] and mod.Data.Teegro.lockedItems[ind].Variant == 100 and pickup.Variant ~= 100 then
         mod.Data.Teegro.lockedItems[ind] = nil
@@ -230,7 +231,7 @@ function callbacks:OnPickupInit(pickup)
     if mod.Data.Teegro.lockedItems[ind] and not locked[ind] then
         LockItemSprite(pickup, mod.Data.Teegro.lockedItems[ind].touch)
     end
-    if pickup.Variant == 100 and not mod.Data.Teegro.checkedItems[ind] and pickup:GetSprite():GetAnimation() ~= "Empty"then
+    if pickup.Variant == 100 and not mod.Data.Teegro.checkedItems[ind] and pickup:GetSprite():GetAnimation() ~= "Empty" then
         mod.Data.Teegro.checkedItems[ind] = {
             Variant = pickup.Variant,
             SubType = pickup.SubType
@@ -288,7 +289,7 @@ end
 mod:AddCallback(ModCallbacks.MC_PRE_PICKUP_COLLISION, callbacks.LockedItemInteraction)
 
 function callbacks:UnlockItem(pickup)
-    if not mod.CharaterInGame(mod.PLAYER_TEEGRO) then return end
+    if not mod.CharacterInGame(mod.PLAYER_TEEGRO) then return end
     local ind = GetPickupInd(pickup)
     if pickup.Variant == 100 and mod.Data.Teegro.lockedItems[ind] then
         if locked[ind] and locked[ind].entities[1] and locked[ind].entities[1]:GetSprite():IsFinished("FrontUnlocking") then
@@ -489,7 +490,7 @@ end
 mod:AddCallback(ModCallbacks.MC_POST_PICKUP_UPDATE, callbacks.HunterChestUpdate)
 
 function callbacks:SpawnHunterKey(pickup)
-    if not mod.CharaterInGame(mod.PLAYER_TEEGRO) or pickup.Variant == 100 then return end
+    if not mod.CharacterInGame(mod.PLAYER_TEEGRO) or pickup.Variant == 100 then return end
     local ind = GetPickupInd(pickup)
     if mod.Data.Teegro.checkedItems[ind] and mod.Data.Teegro.checkedItems[ind].Variant ~= pickup.Variant then
         mod.Data.Teegro.checkedItems[ind] = nil
@@ -588,7 +589,7 @@ end
 mod:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, callbacks.LockPickupSpritesOnNewRoom)
 
 function callbacks:CheckRoomReward()
-    if not mod.CharaterInGame(mod.PLAYER_TEEGRO) then return end
+    if not mod.CharacterInGame(mod.PLAYER_TEEGRO) then return end
     local room = Game():GetRoom()
     local gridIndex = Game():GetLevel():GetCurrentRoomDesc().SafeGridIndex
     local entities = room:GetEntities()
@@ -636,7 +637,7 @@ end
 mod:AddCallback(ModCallbacks.MC_POST_UPDATE, callbacks.CheckRoomReward)
 
 function callbacks:SpawnKeyAfterBossDeath(npc)
-    if not mod.CharaterInGame(mod.PLAYER_TEEGRO) then return end
+    if not mod.CharacterInGame(mod.PLAYER_TEEGRO) then return end
     local spawn = {}
     if npc:IsBoss() and not mod.Data.Teegro.bossWasKilled then
         if mod.trueTable({RoomType.ROOM_BOSS, RoomType.ROOM_DEVIL, RoomType.ROOM_ANGEL, RoomType.ROOM_MINIBOSS, RoomType.ROOM_SHOP, RoomType.ROOM_CHALLENGE, RoomType.ROOM_SECRET, RoomType.ROOM_SUPERSECRET})[Game():GetRoom():GetType()] then
@@ -683,7 +684,7 @@ end
 mod:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, callbacks.ResetTakenDamageOnNewRoom)
 
 function callbacks:SpawnChestInNewRoom()
-    if not mod.CharaterInGame(mod.PLAYER_TEEGRO) then return end
+    if not mod.CharacterInGame(mod.PLAYER_TEEGRO) then return end
     local descriptor = Game():GetLevel():GetCurrentRoomDesc()
     if mod.Data.Teegro.checkedRooms[descriptor.SafeGridIndex] then return end
     if mod.trueTable({GridRooms.ROOM_BLACK_MARKET_IDX, GridRooms.ROOM_SECRET_SHOP_IDX})[descriptor.GridIndex] then
@@ -933,3 +934,10 @@ function callbacks:ChainsOpacity(effect)
     end
 end
 mod:AddCallback(ModCallbacks.MC_POST_EFFECT_RENDER, callbacks.ChainsOpacity)
+
+function callbacks:RemoveUselessChains(effect)
+    if effect.Variant == ItemChainsVarian and effect.Parent == nil then
+        effect:Remove()
+    end
+end
+mod:AddCallback(ModCallbacks.MC_POST_EFFECT_UPDATE, callbacks.RemoveUselessChains)
