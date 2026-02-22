@@ -1,0 +1,5 @@
+<items gfxroot="gfx/items/" deathanm2="gfx/death items.anm2" version="1">
+    <active id="1" name="Dream's Dream Book" description="Wonderful stories written within" gfx="DreamsDreamBook.png" tags="book nolostbr" quality="2" />
+    <trinket id="2" name="Dream's Handbag" description="What can be in it?" gfx="Trinket_DreamsHandbag.png" />
+    <active id="3" name="Momentuum" description="History's Piece" gfx="Collectible_Momentuum.png" cache="all" charges="0" quality="4" />
+</items>

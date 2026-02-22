@@ -1,0 +1,11 @@
+<sounds root="sfx/">
+	<sound name="MomentuumExplosion">
+		<sample weight="1" path="Momentuum_Explosion.wav" />
+	</sound>
+	<sound name="PilferAura">
+		<sample weight="1" path="Pilfer_Aura.wav" />
+	</sound>
+	<sound name="PilferMetka">
+		<sample weight="1" path="Pilfer_Metka.wav" />
+	</sound>
+</sounds>

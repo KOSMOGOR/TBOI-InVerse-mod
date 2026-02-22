@@ -1,0 +1,7 @@
+<wisps gfxroot="gfx/familiar/wisps/">
+    <color name="flame_orange" r="400" g="250" b="60"/>
+    <color name="core_orange" r="300" g="200" b="10"/>
+    <color name="tear_orange" r="220" g="140" b="50" or="70" og="35"/>
+
+    <wisp id="2" hp="20" layer="0" flameColor="flame_orange" coreColor="core_orange" tearColor="tear_orange" coreGfx="Momentuum_Wisp.png" />
+</wisps>

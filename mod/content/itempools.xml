@@ -1,0 +1,46 @@
+<ItemPools>
+	<Pool Name="treasure">
+		<Item Name="Momentuum" Weight="0.25" DecreaseBy="1" RemoveOn="0.1"/>
+		<Item Name="Dream's Dream Book" Weight="0.5" DecreaseBy="1" RemoveOn="0.1"/>
+	</Pool>
+	<Pool Name="shop"></Pool>
+	<Pool Name="boss"></Pool>
+	<Pool Name="devil"></Pool>
+	<Pool Name="angel"></Pool>
+	<Pool Name="secret">
+		<Item Name="Momentuum" Weight="0.5" DecreaseBy="1" RemoveOn="0.1"/>
+		<Item Name="Glitched Deck" Weight="1" DecreaseBy="1" RemoveOn="0.1"/>
+	</Pool>
+	<Pool Name="library">
+		<Item Name="Dream's Dream Book" Weight="1" DecreaseBy="1" RemoveOn="0.1"/>
+	</Pool>
+	<Pool Name="shellGame"></Pool>
+	<Pool Name="goldenChest"></Pool>
+	<Pool Name="redChest"></Pool>
+	<Pool Name="beggar"></Pool>
+	<Pool Name="demonBeggar"></Pool>
+	<Pool Name="curse"></Pool>
+	<Pool Name="keyMaster"></Pool>
+	<Pool Name="batteryBum"></Pool>
+	<Pool Name="greedTreasure">
+		<Item Name="Momentuum" Weight="0.25" DecreaseBy="1" RemoveOn="0.1"/>
+		<Item Name="Dream's Dream Book" Weight="0.5" DecreaseBy="1" RemoveOn="0.1"/>
+	</Pool>
+	<Pool Name="greedShop">
+		<Item Name="Momentuum" Weight="0.1" DecreaseBy="1" RemoveOn="0.1"/>
+	</Pool>
+	<Pool Name="greedCurse"></Pool>
+	<Pool Name="greedDevil"></Pool>
+	<Pool Name="greedAngel"></Pool>
+	<Pool Name="greedSecret">
+		<Item Name="Momentuum" Weight="0.5" DecreaseBy="1" RemoveOn="0.1"/>
+		<Item Name="Glitched Deck" Weight="1" DecreaseBy="1" RemoveOn="0.1"/>
+	</Pool>
+	<Pool Name="craneGame"></Pool>
+	<Pool Name="bombBum"></Pool>
+	<Pool Name="planetarium"></Pool>
+	<Pool Name="oldChest"></Pool>
+	<Pool Name="babyShop"></Pool>
+	<Pool Name="woodenChest"></Pool>
+	<Pool Name="rottenBeggar"></Pool>
+</ItemPools>

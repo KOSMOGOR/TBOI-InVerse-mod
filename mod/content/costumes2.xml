@@ -1,0 +1,13 @@
+<costumes anm2root="gfx/characters/">
+	<costume anm2path="Dream_Hair.anm2" type="none" priority="99" />
+
+	<costume anm2path="DreamB_Hair.anm2" type="none" priority="99" />
+	<costume anm2path="DreamBBody_Hair.anm2" type="none" priority="99" />
+	<costume anm2path="Dream_Pog.anm2" type="none" priority="900" />
+	<costume anm2path="DreamB_Pog.anm2" type="none" priority="900" />
+	<costume anm2path="DreamBBody_Pog.anm2" type="none" priority="900" />
+
+	<costume anm2path="Teegro_Hair.anm2" type="none" priority="99" />
+	<costume anm2path="Teegro_Tail.anm2" type="none" priority="99" />
+	<costume anm2path="Teegro_Pog.anm2" type="none" priority="900" />
+</costumes>

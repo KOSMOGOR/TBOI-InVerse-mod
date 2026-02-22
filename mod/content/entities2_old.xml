@@ -1,0 +1,28 @@
+<entities anm2root="gfx/" version="5">
+    <entity anm2path="items/collectibles/Momentuum_Anim.anm2" baseHP="0" boss="0" champion="0" collisionDamage="0" collisionMass="1" collisionRadius="1" friction="1" id="981" name="Momentuum" numGridCollisionPoints="0" shadowSize="10" stageHP="0" variant="0">
+		<preload-snd id="38" /> <!-- FETUS_JUMP -->
+    </entity>
+    <entity anm2path="items/collectibles/Momentuum_Explosion.anm2" baseHP="0" boss="0" champion="0" collisionDamage="0" collisionMass="0" collisionRadius="0" friction="1" id="1000" name="MomentuumExplosion" numGridCollisionPoints="0" shadowSize="0" stageHP="0" />
+    <entity anm2path="items/collectibles/Metka.anm2" baseHP="0" boss="0" champion="0" collisionDamage="0" collisionMass="0" collisionRadius="0" friction="1" id="1000" name="Metka" numGridCollisionPoints="0" shadowSize="0" stageHP="0" />
+    <entity anm2path="items/collectibles/Pilfer.anm2" baseHP="0" boss="0" champion="0" collisionDamage="0" collisionMass="0" collisionRadius="0" friction="1" id="1000" name="PilferAura" numGridCollisionPoints="0" shadowSize="0" stageHP="0" />
+    <entity anm2path="items/collectibles/Dinfinity_break.anm2" baseHP="0" boss="0" champion="0" collisionDamage="0" collisionMass="0" collisionRadius="0" friction="1" id="1000" name="DinfinityBreak" numGridCollisionPoints="0" shadowSize="0" stageHP="0" />
+
+    <entity anm2path="teegro/item_chains.anm2" baseHP="0" boss="0" champion="0" collisionDamage="0" collisionMass="0" collisionRadius="0" friction="1" id="1000" name="ItemChains" numGridCollisionPoints="0" shadowSize="0" stageHP="0" />
+    <entity anm2path="items/pickups/hunter_key.anm2" baseHP="0" boss="0" champion="0" collisionDamage="0" collisionMass="3" collisionRadius="12" friction="1" id="5" variant="1001" name="Hunter Key" numGridCollisionPoints="24" shadowSize="13" stageHP="0">
+	    <preload-snd id="204" /> <!-- GOLDENKEY -->
+    </entity>
+    <entity anm2path="items/pickups/hunter_key_part.anm2" baseHP="0" boss="0" champion="0" collisionDamage="0" collisionMass="3" collisionRadius="12" friction="1" id="5" variant="1002" name="Hunter Key Part" numGridCollisionPoints="24" shadowSize="13" stageHP="0">
+	    <preload-snd id="461" /> <!-- BONE_HEART -->
+    </entity>
+    <entity anm2path="ui/key_price.anm2" baseHP="0" boss="0" champion="0" collisionDamage="0" collisionMass="0" collisionRadius="0" friction="1" id="1000" name="Key Price" numGridCollisionPoints="0" shadowSize="0" stageHP="0" />
+    <entity anm2path="teegro/hunter_chest.anm2" baseHP="0" boss="0" champion="0" collisionDamage="0" collisionMass="6" collisionRadius="12" friction="0.8" id="5" name="Hunter Chest" numGridCollisionPoints="24" shadowSize="27" stageHP="0" variant="1003">
+	    <preload-snd id="22" /> <!-- CHEST_OPEN -->
+	    <preload-snd id="156" /> <!-- UNLOCK00 -->
+    </entity>
+    <entity anm2path="items/pickups/hunter_key_double.anm2" baseHP="0" boss="0" champion="0" collisionDamage="0" collisionMass="3" collisionRadius="12" friction="1" id="5" variant="1004" name="Double Hunter Key" numGridCollisionPoints="24" shadowSize="13" stageHP="0">
+	    <preload-snd id="204" /> <!-- GOLDENKEY -->
+    </entity>
+    <entity anm2path="items/pickups/hunter_key_part.anm2" baseHP="0" boss="0" champion="0" collisionDamage="0" collisionMass="3" collisionRadius="12" friction="1" id="5" variant="1005" name="Half Hunter Key" numGridCollisionPoints="24" shadowSize="13" stageHP="0">
+	    <preload-snd id="461" /> <!-- BONE_HEART -->
+    </entity>
+</entities>
