@@ -1,7 +1,7 @@
-import { Callback, CallbackCustom, DefaultMap, defaultMapGetPlayer, game, getEntities, getGoldenTrinketType, getPlayersWithTrinket, getPlayerTrinkets, getPocketItems, getRandomArrayElement, getRandomInt, getTrinkets, itemConfig, mapSetPlayer, MAX_PLAYER_TRINKET_SLOTS, ModCallbackCustom, ModFeature, PlayerIndex, smeltTrinket, spawn, spawnPickup, VectorZero, type PocketItemType } from "isaacscript-common";
+import { Callback, CallbackCustom, DefaultMap, defaultMapGetPlayer, game, getEntities, getGoldenTrinketType, getPlayersWithTrinket, getRandomArrayElement, getRandomInt, mapSetPlayer, MAX_PLAYER_TRINKET_SLOTS, ModCallbackCustom, ModFeature, PlayerIndex, smeltTrinket, spawnPickup, spawnTrinket, VectorZero } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { InnateItems } from "../misc/InnateItems";
-import { CollectibleType, EntityType, ModCallback, PickupVariant, TrinketSlot, TrinketType, type DamageFlag } from "isaac-typescript-definitions";
+import { CollectibleType, EntityType, ModCallback, PickupVariant, TrinketType, type DamageFlag } from "isaac-typescript-definitions";
 import { Utils } from "../misc/Utils";
 
 const v = {
@@ -36,7 +36,7 @@ export class DreamsHandbag extends ModFeature {
             awardPickups.forEach(pickup => pickup?.Remove());
             let trinket = game.GetItemPool().GetTrinket();
             if (mult >= 3 && getRandomInt(1, 100, rng) <= 5) trinket = getGoldenTrinketType(trinket);
-            spawnPickup(PickupVariant.TRINKET, trinket, pos);
+            spawnTrinket(trinket, pos);
         }
     }
 
@@ -68,7 +68,7 @@ export class DreamsHandbag extends ModFeature {
             let trinket = getRandomArrayElement(trinkets, rng);
             player.TryRemoveTrinket(trinket);
             let pos = game.GetRoom().FindFreePickupSpawnPosition(player.Position);
-            spawnPickup(PickupVariant.TRINKET, trinket, pos, VectorZero, undefined, player.GetTrinketRNG(trinket));
+            spawnTrinket(trinket, pos, VectorZero, undefined, player.GetTrinketRNG(trinket));
         }
         return;
     }
