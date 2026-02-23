@@ -1,10 +1,13 @@
-import { CardType, CollectibleType, EntityFlag, EntityType, ModCallback, UseFlag, PlayerItemAnimation, SoundEffect, GridRoom, PickupVariant, RoomType, DisplayFlag, RoomDescriptorFlag, GeminiVariant, BeastVariant, DingleVariant, GurglingVariant, ItemPoolType, TrinketType } from "isaac-typescript-definitions";
-import { addFlag, anyPlayerHasCollectible, bitFlags, Callback, CallbackCustom, DefaultMap, defaultMapGetPlayer, game, getEntities, getRandomArrayElement, getRandomInt, getRoomData, getRoomDescriptorReadOnly, getRooms, getUnusedDoorSlots, hasFlag, isRoomType, mapDeletePlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, sfxManager, smeltTrinket, spawnCollectible, spawnCollectibleFromPool, spawnNPC, spawnPickup, teleport, type PlayerIndex } from "isaacscript-common";
+import { CardType, CollectibleType, EntityFlag, EntityType, ModCallback, UseFlag, PlayerItemAnimation, SoundEffect, GridRoom, PickupVariant, RoomType, DisplayFlag, RoomDescriptorFlag, GeminiVariant, BeastVariant, DingleVariant, GurglingVariant, ItemPoolType, TrinketType, GridEntityType, PoopGridEntityVariant } from "isaac-typescript-definitions";
+import { addFlag, anyPlayerHasCollectible, bitFlags, Callback, CallbackCustom, COLORS, DefaultMap, defaultMapGetPlayer, game, getEntities, getRandomArrayElement, getRandomArrayElementAndRemove, getRandomInt, getRoomData, getRoomDescriptorReadOnly, getRooms, getUnusedDoorSlots, hasFlag, isRoomType, mapDeletePlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, repeat, sfxManager, smeltTrinket, spawnCollectible, spawnCollectibleFromPool, spawnGridEntityWithVariant, spawnNPC, spawnPickup, teleport, type PlayerIndex } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { Utils } from "../misc/Utils";
+import { InnateItems } from "../misc/InnateItems";
 
 const v = {
     run: {
+        Fool: false,
+        FoolRoomTime: 0,
         Emperor: new Array<EntityType>(),
         Hermit: false,
         WheelOfFortune: new DefaultMap<PlayerIndex, {remainingUses: int, passedSinceLastUse: int}>(() => { return {remainingUses: 0, passedSinceLastUse: 0}; }),
@@ -32,7 +35,9 @@ export class MomentuumCards extends ModFeature {
         if (hasFlag(useFlags, UseFlag.CAR_BATTERY)) return;
         let entity: Entity;
         switch (cardType) {
-            case ModEnums.CARD_MOMENTUUM_FOOL: break
+            case ModEnums.CARD_MOMENTUUM_FOOL:
+                v.run.Fool = true;
+                break
             case ModEnums.CARD_MOMENTUUM_MAGICIAN:
                 for (let i = 0; i < 10; i++) {
                     if (getRandomInt(1, 10, rng) == 1) player.UseActiveItem(CollectibleType.LEMEGETON, UseFlag.NO_ANIMATION);
@@ -43,16 +48,17 @@ export class MomentuumCards extends ModFeature {
             case ModEnums.CARD_MOMENTUUM_EMPRESS: break;
             case ModEnums.CARD_MOMENTUUM_EMPEROR:
                 const possibleBosses = [[EntityType.DINGLE], [EntityType.DINGLE, DingleVariant.DANGLE], [EntityType.DUKE_OF_FLIES], [EntityType.GEMINI], [EntityType.GEMINI, GeminiVariant.STEVEN],
-                [EntityType.LARRY_JR], [EntityType.MONSTRO], [EntityType.GURGLING, GurglingVariant.GURGLING, EntityType.GURGLING], [EntityType.GURGLING, GurglingVariant.TURDLING, EntityType.GURGLING],
-                [EntityType.FAMINE], [EntityType.FALLEN], [EntityType.HEADLESS_HORSEMAN, 0, EntityType.HORSEMAN_HEAD], [EntityType.LITTLE_HORN], [EntityType.RAG_MAN], [EntityType.BABY_PLUM]];
+                    [EntityType.LARRY_JR], [EntityType.MONSTRO], [EntityType.GURGLING, GurglingVariant.GURGLING, EntityType.GURGLING], [EntityType.GURGLING, GurglingVariant.TURDLING, EntityType.GURGLING],
+                    [EntityType.FAMINE], [EntityType.FALLEN], [EntityType.HEADLESS_HORSEMAN, 0, EntityType.HORSEMAN_HEAD], [EntityType.LITTLE_HORN], [EntityType.RAG_MAN], [EntityType.BABY_PLUM]];
                 let boss = getRandomArrayElement(possibleBosses, rng);
-                entity = spawnNPC(boss[0] as EntityType, boss[1] ?? 0, 0, player.Position);
-                entity.HitPoints = 50;
-                entity.AddEntityFlags(addFlag(EntityFlag.CHARM, EntityFlag.FRIENDLY));
-                if (boss.length > 1) {
-                    entity = spawnNPC(boss[2] as EntityType, boss[1] ?? 0, 0, player.Position);
-                    entity.HitPoints = 48;
-                    entity.AddEntityFlags(addFlag(EntityFlag.CHARM, EntityFlag.FRIENDLY));
+                let bossTypes = [boss[0] as EntityType];
+                if (boss.length > 2) bossTypes.push(boss[2] as EntityType);
+                let bossVariant = boss[1] ?? 0;
+                for (let bossType of bossTypes) {
+                    let boss = spawnNPC(bossType as EntityType, bossVariant, 0, player.Position);
+                    boss.HitPoints = 48 + (hasTarotCloth ? 24 : 0);
+                    boss.AddEntityFlags(addFlag(EntityFlag.CHARM, EntityFlag.FRIENDLY, EntityFlag.PERSISTENT));
+                    if (hasTarotCloth) boss.MakeChampion(boss.InitSeed);
                 }
                 v.run.Emperor.push(boss[0] as EntityType);
                 break;
@@ -61,7 +67,7 @@ export class MomentuumCards extends ModFeature {
                 getEntities().forEach(entity => {
                     if (entity.IsVulnerableEnemy() && !entity.IsBoss()) {
                         entity.AddEntityFlags(addFlag(EntityFlag.CHARM, EntityFlag.FRIENDLY, EntityFlag.PERSISTENT));
-                        if (hasTarotCloth && getRandomInt(1, 4, rng) == 1) entity.ToNPC()?.MakeChampion(entity.InitSeed);
+                        if (hasTarotCloth && getRandomInt(1, 2, rng) == 1) entity.ToNPC()?.MakeChampion(entity.InitSeed);
                     }
                 });
                 break;
@@ -78,6 +84,7 @@ export class MomentuumCards extends ModFeature {
                 break;
             case ModEnums.CARD_MOMENTUUM_STRENGTH:
                 player.UseActiveItem(CollectibleType.MEGA_MUSH);
+                if (hasTarotCloth) player.UseActiveItem(CollectibleType.MEGA_MUSH);
                 break;
             case ModEnums.CARD_MOMENTUUM_HANGED: break;
             case ModEnums.CARD_MOMENTUUM_DEATH:
@@ -86,7 +93,14 @@ export class MomentuumCards extends ModFeature {
                 sfxManager.Play(SoundEffect.SATAN_GROW);
                 break;
             case ModEnums.CARD_MOMENTUUM_TEMPERANCE: break;
-            case ModEnums.CARD_MOMENTUUM_DEVIL: break;
+            case ModEnums.CARD_MOMENTUUM_DEVIL:
+                let leviathanItems = [CollectibleType.PENTAGRAM, CollectibleType.MARK, CollectibleType.PACT, CollectibleType.LORD_OF_THE_PIT, CollectibleType.BRIMSTONE,
+                    CollectibleType.SPIRIT_OF_THE_NIGHT, CollectibleType.ABADDON, CollectibleType.MAW_OF_THE_VOID, CollectibleType.EYE_OF_THE_OCCULT];
+                repeat(3, () => {
+                    let item = getRandomArrayElementAndRemove(leviathanItems, rng);
+                    InnateItems.AddItemForLevel(player, item);
+                });
+                break;
             case ModEnums.CARD_MOMENTUUM_TOWER: break;
             case ModEnums.CARD_MOMENTUUM_STARS: break;
             case ModEnums.CARD_MOMENTUUM_MOON:
@@ -128,6 +142,7 @@ export class MomentuumCards extends ModFeature {
 
     @CallbackCustom(ModCallbackCustom.POST_NEW_ROOM_REORDERED)
     CardsNewRoom() {
+        v.run.FoolRoomTime = game.TimeCounter;
         if (v.run.Moon) {
             v.run.Moon = false;
             let room = game.GetRoom();
@@ -145,19 +160,13 @@ export class MomentuumCards extends ModFeature {
 
     @CallbackCustom(ModCallbackCustom.POST_NEW_LEVEL_REORDERED)
     CardsNewLevel() {
+        if (v.run.Fool) {
+            v.run.Fool = false;
+        }
         if (v.run.Hermit) {
             v.run.Hermit = false;
             let player = Isaac.GetPlayer();
             player.AddCoins(anyPlayerHasCollectible(CollectibleType.TAROT_CLOTH) ? -50 : -player.GetNumCoins());
-        }
-    }
-
-    @Callback(ModCallback.POST_NPC_DEATH)
-    CardsPostNpcDeath(npc: EntityNPC) {
-        let ind = v.run.Emperor.indexOf(npc.Type);
-        if (ind >= 0) {
-            v.run.Emperor.slice(ind);
-            spawnCollectibleFromPool(ItemPoolType.BOSS, game.GetRoom().FindFreePickupSpawnPosition(npc.Position), undefined);
         }
     }
 
@@ -168,6 +177,50 @@ export class MomentuumCards extends ModFeature {
                 let level = game.GetLevel();
                 let gridIndex = level.GetCurrentRoomDesc().SafeGridIndex;
                 for (const doorSlot of getUnusedDoorSlots()) level.MakeRedRoomDoor(gridIndex, doorSlot);
+            }
+        }
+    }
+
+    @CallbackCustom(ModCallbackCustom.POST_GRID_ENTITY_INIT)
+    CardsOnGridEntityInit(gridEntity: GridEntity) {
+        if (v.run.Fool) {
+            let room = game.GetRoom();
+            if (gridEntity.GetType() == GridEntityType.POOP && gridEntity.GetVariant() != PoopGridEntityVariant.RAINBOW && (room.IsFirstVisit() || game.TimeCounter != v.run.FoolRoomTime)) {
+                if (getRandomInt(1, 10, Isaac.GetPlayer().GetCardRNG(ModEnums.CARD_MOMENTUUM_FOOL)) <= 8) {
+                    gridEntity.SetVariant(PoopGridEntityVariant.RAINBOW);
+                    gridEntity.Init(gridEntity.GetSaveState().SpawnSeed);
+                }
+            }
+        }
+    }
+
+    @Callback(ModCallback.POST_NPC_INIT)
+    CardsPostNpcInit(npc: EntityNPC) {
+        if (v.run.Fool) {
+            let ref = EntityRef(undefined), duration = 3 * 30, damage = 3.5;
+            if (npc.IsVulnerableEnemy()) {
+                switch (getRandomInt(1, 8, Isaac.GetPlayer().GetCardRNG(ModEnums.CARD_MOMENTUUM_FOOL))) {
+                    case 1: npc.AddBurn(ref, duration, damage); break;
+                    case 2: npc.AddCharmed(ref, duration); break;
+                    case 3: npc.AddConfusion(ref, duration); break;
+                    case 4: npc.AddFear(ref, duration); break;
+                    case 5: npc.AddFreeze(ref, duration); break;
+                    case 6: npc.AddMidasFreeze(ref, duration); break;
+                    case 7: npc.AddPoison(ref, duration, damage); break;
+                    case 8: npc.AddShrink(ref, duration); break;
+                    case 8: npc.AddSlowing(ref, duration, 0.5, COLORS.White); break;
+                }
+            }
+        }
+    }
+
+    @Callback(ModCallback.POST_NPC_DEATH)
+    CardsPostNpcDeath(npc: EntityNPC) {
+        if (v.run.Emperor.length > 0) {
+            let ind = v.run.Emperor.indexOf(npc.Type);
+            if (ind >= 0 && npc.HasEntityFlags(addFlag(EntityFlag.CHARM, EntityFlag.FRIENDLY, EntityFlag.PERSISTENT))) {
+                v.run.Emperor.splice(ind, 1);
+                spawnCollectibleFromPool(ItemPoolType.BOSS, game.GetRoom().FindFreePickupSpawnPosition(npc.Position), undefined);
             }
         }
     }

@@ -523,6 +523,7 @@ export class Momentuum extends ModFeature {
         if (familiar.FireCooldown <= 0 && fireDirection != Direction.NO_DIRECTION) {
             let damageMult = defaultMapGetPlayer(v.run.MomentuumCharges, player) / 12 * (player.HasCollectible(CollectibleType.BFFS) ? 1.5 : 1);
             let laser = EntityLaser.ShootAngle(LaserVariant.THIN_RED, familiar.Position.add(Vector(0, -20)), fireDegrees, 3, VectorZero, familiar);
+            laser.Parent = undefined;
             laser.CollisionDamage = player.Damage * damageMult;
             laser.SetColor(Color(1, 1, 1, 1, 1, .5, 0), -1, 100);
             familiar.FireCooldown = FamiliarCooldown / (player.HasTrinket(TrinketType.FORGOTTEN_LULLABY) ? 2 : 1);
