@@ -1,5 +1,5 @@
 import { CollectibleType, ItemPoolType, ItemType, type TrinketType } from "isaac-typescript-definitions";
-import { defaultMapGetPlayer, game, getRandomArrayElement, getRandomInt, inMirrorRoom, isRNG, itemConfig, mapSetPlayer, newRNG, type DefaultMap, type PlayerIndex } from "isaacscript-common";
+import { defaultMapGetPlayer, game, getRandomArrayElement, getRandomInt, isRNG, itemConfig, mapSetPlayer, newRNG, type DefaultMap, type PlayerIndex } from "isaacscript-common";
 
 export class Utils {
     static getItemFromPool(pools: ItemPoolType | ItemPoolType[], rngOrSeed: RNG | Seed, minimumQuality: int = 0): CollectibleType {

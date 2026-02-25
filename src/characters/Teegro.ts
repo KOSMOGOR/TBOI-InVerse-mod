@@ -1,6 +1,6 @@
-import { Callback, CallbackCustom, game, getCharacters, inRoomType, itemConfig, K_COLORS, ModCallbackCustom, ModFeature, spawnEffect, type PickupIndex } from "isaacscript-common";
+import { addFlag, anyPlayerHasCollectible, Callback, CallbackCustom, game, getAdjustedPrice, getCharacters, getRandomInt, getRandomVector, hasFlag, inRoomType, itemConfig, K_COLORS, ModCallbackCustom, ModFeature, sfxManager, spawnEffect, spawnPickup, type PickupIndex } from "isaacscript-common";
 import { mod } from "../mod";
-import { CacheFlag, ItemConfigTag, ModCallback, PickupPrice, PickupVariant, RoomType } from "isaac-typescript-definitions";
+import { CacheFlag, CollectibleType, DamageFlag, EntityType, ItemConfigTag, ModCallback, PickupPrice, PickupVariant, RoomType, SoundEffect } from "isaac-typescript-definitions";
 import { ModEnums } from "../ModEnums";
 import { CallbackPostPlayerRenderAbove } from "../misc/AdditionalCallbacks";
 import { Utils } from "../misc/Utils";
@@ -11,7 +11,7 @@ const TeegroTail = Isaac.GetCostumeIdByPath("gfx/characters/Teegro_Tail.anm2");
 const font = Font();
 font.Load("font/terminus.fnt");
 const ItemChainsVariant = Isaac.GetEntityVariantByName("ItemChains");
-const HunterPriceVariant = Isaac.GetEntityVariantByName("HunterPrice");
+const HunterPriceEffectVariant = Isaac.GetEntityVariantByName("HunterPrice");
 const HunterKeyVariant = Isaac.GetEntityVariantByName("HunterKey");
 const HunterKeySubType = {
     Shard: 1,
@@ -19,28 +19,41 @@ const HunterKeySubType = {
     Full: 3,
     Double: 4,
 };
-const HunterKeyValue = {
-    [HunterKeySubType.Shard]: 1,
-    [HunterKeySubType.Half]: 2,
-    [HunterKeySubType.Full]: 4,
-    [HunterKeySubType.Double]: 8,
+const HunterKeyInfo = {
+    [HunterKeySubType.Shard]: {Value: 1, BasePrice: 5},
+    [HunterKeySubType.Half]: {Value: 2, BasePrice: 5},
+    [HunterKeySubType.Full]: {Value: 4, BasePrice: 15},
+    [HunterKeySubType.Double]: {Value: 8, BasePrice: 15}
 }
+const HunterPrice = -100;
 
-mod.registerCustomPickup(HunterKeyVariant, HunterKeySubType.Shard, _ => v.run.keyShards += HunterKeyValue[HunterKeySubType.Shard] ?? 0);
-mod.registerCustomPickup(HunterKeyVariant, HunterKeySubType.Half, _ => v.run.keyShards += HunterKeyValue[HunterKeySubType.Half] ?? 0);
-mod.registerCustomPickup(HunterKeyVariant, HunterKeySubType.Full, _ => v.run.keyShards += HunterKeyValue[HunterKeySubType.Full] ?? 0);
-mod.registerCustomPickup(HunterKeyVariant, HunterKeySubType.Double, _ => v.run.keyShards += HunterKeyValue[HunterKeySubType.Double] ?? 0);
+function CollectHunterPickup(pickup: EntityPickup, player: EntityPlayer) {
+    if (pickup.Price > 0) player.AddCoins(-pickup.Price);
+    else if (pickup.Price == PickupPrice.SPIKES) player.TakeDamage(2, addFlag(DamageFlag.SPIKES, DamageFlag.NO_PENALTIES), EntityRef(pickup), 60);
+    v.run.keyShards += HunterKeyInfo[pickup.SubType]?.Value ?? 0;
+    sfxManager.Play(SoundEffect.BONE_HEART);
+}
+function CollisionHunterPickup(pickup: EntityPickup, player: EntityPlayer) {
+    if (pickup.Price > 0 && player.GetNumCoins() < pickup.Price || pickup.Price == PickupPrice.SPIKES && player.GetDamageCooldown() > 0) return true;
+    return;
+}
+mod.registerCustomPickup(HunterKeyVariant, HunterKeySubType.Shard, CollectHunterPickup, CollisionHunterPickup);
+mod.registerCustomPickup(HunterKeyVariant, HunterKeySubType.Half, CollectHunterPickup, CollisionHunterPickup);
+mod.registerCustomPickup(HunterKeyVariant, HunterKeySubType.Full, CollectHunterPickup, CollisionHunterPickup);
+mod.registerCustomPickup(HunterKeyVariant, HunterKeySubType.Double, CollectHunterPickup, CollisionHunterPickup);
 
 const lockedEffects = new Map<PickupIndex, Array<EntityEffect>>();
 
 const v = {
     run: {
-        keyShards: 80
+        keyShards: 80,
+        tookDamageThisRoom: false
     },
     level: {
         pickupsInfo: new Map<PickupIndex, {locked: boolean, canTouch: boolean, cost: number, wait: number}>(),
         // For turning pickups into hunter keys
-        checkedPickups: new Set<PickupIndex>()
+        checkedPickups: new Set<PickupIndex>(),
+        hunterChestRewards: new Map<PickupIndex, Array<[PickupVariant, int?]>>()
     }
 }
 
@@ -62,8 +75,8 @@ function LockItemSprite(pickup: EntityPickup) {
         lockedEffects.set(ind, [front, back]);
     } else {
         pickup.AutoUpdatePrice = false;
-        pickup.Price = -100;
-        let price = spawnEffect(HunterPriceVariant, 0, pickup.Position);
+        pickup.Price = HunterPrice;
+        let price = spawnEffect(HunterPriceEffectVariant, 0, pickup.Position);
         price.SpriteOffset = Vector(0, 10);
         price.DepthOffset = 10;
         price.GetSprite().SetFrame("Idle", math.floor(pickupInfo.cost / 4) - 1);
@@ -92,15 +105,17 @@ export class Teegro extends ModFeature {
         if (player.GetPlayerType() != ModEnums.PLAYER_TEEGRO) return;
         switch (cacheFlag) {
             case CacheFlag.DAMAGE:
-                player.Damage += 1.6; break;
+                player.Damage += 0.6; break;
             case CacheFlag.FIRE_DELAY:
-                player.MaxFireDelay *= 1.4; break;
+                player.MaxFireDelay *= 1.2; break;
             case CacheFlag.SHOT_SPEED:
                 player.ShotSpeed += 0.2; break;
             case CacheFlag.RANGE:
                 player.TearRange -= 80; break;
             case CacheFlag.SPEED:
-                player.MoveSpeed += 0.1; break;
+                player.MoveSpeed += 0.2; break;
+            case CacheFlag.LUCK:
+                player.Luck -= 1; break;
         }
     }
 
@@ -114,6 +129,14 @@ export class Teegro extends ModFeature {
     @CallbackCustom(ModCallbackCustom.POST_NEW_ROOM_EARLY)
     ResetValues() {
         lockedEffects.clear();
+        v.run.tookDamageThisRoom = false;
+    }
+
+    @CallbackCustom(ModCallbackCustom.POST_ROOM_CLEAR_CHANGED, true)
+    PostRoomCleared() {
+        let room = game.GetRoom();
+        if (!v.run.tookDamageThisRoom && getRandomInt(1, 2, game.GetRoom().GetAwardSeed()) == 1)
+            spawnPickup(HunterKeyVariant, HunterKeySubType.Shard, room.FindFreePickupSpawnPosition(room.GetCenterPos()));
     }
 
     @CallbackCustom(ModCallbackCustom.POST_PICKUP_INIT_LATE, PickupVariant.COLLECTIBLE)
@@ -134,15 +157,15 @@ export class Teegro extends ModFeature {
         }
         // Didn't check - lock
         if (!pickupInfo) {
-            if (itemConfig.GetCollectible(pickup.SubType)?.HasTags(ItemConfigTag.QUEST) || inRoomType(RoomType.BOSS)) return;
+            if (itemConfig.GetCollectible(pickup.SubType)?.HasTags(ItemConfigTag.QUEST) || inRoomType(RoomType.BOSS) || pickup.Price == PickupPrice.YOUR_SOUL) return;
             let canTouch = true, cost = 4, wait = pickup.Price == 0 ? 15 : 0;
-            if ([PickupPrice.TWO_HEARTS, PickupPrice.THREE_SOUL_HEARTS, PickupPrice.ONE_HEART_AND_ONE_SOUL_HEART, PickupPrice.TWO_SOUL_HEARTS, PickupPrice.ONE_HEART_AND_ONE_SOUL_HEART, 30].includes(pickup.Price)) {
+            if ([PickupPrice.TWO_HEARTS, PickupPrice.THREE_SOUL_HEARTS, PickupPrice.ONE_HEART_AND_TWO_SOUL_HEARTS, PickupPrice.TWO_SOUL_HEARTS, PickupPrice.ONE_HEART_AND_ONE_SOUL_HEART].includes(pickup.Price) || pickup.Price >= 25) {
                 cost = 12;
                 canTouch = false;
-            } else if ([PickupPrice.ONE_HEART, PickupPrice.ONE_SOUL_HEART, 15].includes(pickup.Price)) {
+            } else if ([PickupPrice.ONE_HEART, PickupPrice.ONE_SOUL_HEART].includes(pickup.Price) || pickup.Price >= 15) {
                 cost = 8;
                 canTouch = false;
-            } else if ([PickupPrice.YOUR_SOUL, -100].includes(pickup.Price) || pickup.Price > 0) {
+            } else if (pickup.Price == HunterPrice || pickup.Price > 0) {
                 cost = 4;
                 canTouch = false;
             }
@@ -176,6 +199,14 @@ export class Teegro extends ModFeature {
     }
 
     @Callback(ModCallback.POST_PICKUP_UPDATE)
+    HunterPickupUpdatePrice(pickup: EntityPickup) {
+        let hki = HunterKeyInfo[pickup.SubType];
+        if (pickup.Variant != HunterKeyVariant || !hki) return;
+        if (pickup.Price > 0) pickup.Price = anyPlayerHasCollectible(CollectibleType.POUND_OF_FLESH) ? PickupPrice.SPIKES : getAdjustedPrice(hki.BasePrice);
+        return;
+    }
+
+    @Callback(ModCallback.POST_PICKUP_UPDATE)
     UpdateUnlockingItems(pickup: EntityPickup) {
         let ind = mod.getPickupIndex(pickup);
         let pickupInfo = v.level.pickupsInfo.get(ind);
@@ -191,6 +222,38 @@ export class Teegro extends ModFeature {
     @CallbackCustom(ModCallbackCustom.POST_PICKUP_INIT_LATE)
     SpawnHunterKeys(pickup: EntityPickup) {
         if (pickup.Variant == PickupVariant.COLLECTIBLE) return;
+        let ind = mod.getPickupIndex(pickup);
+        if (v.level.checkedPickups.has(ind)) return;
+        v.level.checkedPickups.add(ind);
+        if (pickup.Variant == PickupVariant.KEY) {
+            let rand = getRandomInt(1, 100, pickup.InitSeed);
+            let targetVariant = pickup.Variant, targetSubType = pickup.SubType
+            if (rand == 1) {
+                targetVariant = HunterKeyVariant;
+                targetSubType = HunterKeySubType.Full
+            } else if (rand <= 100) {
+                targetVariant = HunterKeyVariant;
+                targetSubType = HunterKeySubType.Shard;
+            }
+            if (pickup.Variant != targetVariant) {
+                pickup.Morph(EntityType.PICKUP, targetVariant, targetSubType, true, true);
+                pickup.AutoUpdatePrice = false;
+            }
+            pickup.GetSprite().LoadGraphics()
+        }
+    }
+
+    @Callback(ModCallback.POST_NPC_DEATH)
+    OnMinibossDeath(npc: EntityNPC) {
+        if (npc.IsBoss() && inRoomType(RoomType.MINI_BOSS))
+            spawnPickup(HunterKeyVariant, HunterKeySubType.Shard, npc.Position, getRandomVector(undefined).Resized(5));
+    }
+
+    @Callback(ModCallback.ENTITY_TAKE_DMG, EntityType.PLAYER)
+    OnPlayerTakeDamage(entity: Entity, amount: float, damageFlags: BitFlags<DamageFlag>, source: EntityRef, countdownFrames: int): boolean | undefined {
+        let player = entity.ToPlayer(); if (!player) return;
+        if (amount > 0 && !hasFlag(damageFlags, DamageFlag.NO_PENALTIES)) v.run.tookDamageThisRoom = true;
+        return;
     }
 
     @CallbackPostPlayerRenderAbove()

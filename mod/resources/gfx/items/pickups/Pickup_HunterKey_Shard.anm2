@@ -2,7 +2,7 @@
 	<Info CreatedBy="robot" CreatedOn="21.08.2024 21:45:06" Version="107" Fps="30"/>
 	<Content>
 		<Spritesheets>
-			<Spritesheet Path="Pickup_HunterKey_Part_1.png" Id="0"/>
+			<Spritesheet Path="Pickup_HunterKey_Shard_1.png" Id="0"/>
 		</Spritesheets>
 		<Layers>
 			<Layer Name="body" Id="0" SpritesheetId="0"/>
