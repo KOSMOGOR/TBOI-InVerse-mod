@@ -203,22 +203,30 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
     new MomentuumSkill<TargetEntity>(
         (player) => {
             let collectibles = getEntities(EntityType.PICKUP, PickupVariant.COLLECTIBLE)
-                .filter(ent => player.Position.DistanceSquared(ent.Position) <= MomentuumSkillsRadiusSq && ent.SubType != CollectibleType.NULL)
+                .filter(ent => player.Position.DistanceSquared(ent.Position) <= MomentuumSkillsRadiusSq && ent.SubType != CollectibleType.NULL && (ent.ToPickup()?.Price ?? 0) > 0)
                 .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
             return collectibles[0]?.ToPickup();
         },
         (player, target) => {
             let pickup = target?.ToPickup(); if (!pickup) return;
-            let pool = getRoomItemPoolType();
-            let item = game.GetItemPool().GetCollectible(pool, true, game.GetRoom().GetAwardSeed());
-            pickup.Morph(EntityType.PICKUP, PickupVariant.COLLECTIBLE, item, true);
-            spawnEffect(EffectVariant.POOF_1, 0, pickup.Position);
+            pickup.Price = 0;
         },
-        () => 4
-    ).setName("Reroll"),
+        (player, target) => {
+            let pickup = target?.ToPickup(); if (!pickup) return 0;
+            // Not collectible
+            if (pickup.Variant != PickupVariant.COLLECTIBLE) return 2;
+            let itemConfigItem = itemConfig.GetCollectible(pickup.SubType);
+            // Glitch item
+            if (!itemConfigItem) return 6;
+            // Collectible with discount
+            if (pickup.Price != itemConfigItem.ShopPrice && pickup.Price != itemConfigItem.DevilPrice) return 4;
+            // Regular collectible
+            return 6;
+        }
+    ).setName("Free"),
     new MomentuumSkill<TargetGridEntity>(
         (player) => {
-            if (shouldRenderMomentuumUI < 2) return;
+            if (timeSpentInRoom < 5) return;
             let doors = getDoors()
                 .filter(door => player.Position.DistanceSquared(door.Position) <= MomentuumSkillsRadiusSq && !door.IsOpen())
                 .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
@@ -357,7 +365,7 @@ export const MomentuumData = v;
 // Additional data
 const Holding = new DefaultMap<PlayerIndex, int>(0)
 const AvailableMomentuumSkills = new Map<PlayerIndex, int[]>();
-let shouldRenderMomentuumUI = 0;
+let timeSpentInRoom = 0;
 
 // #region Momentuum
 
@@ -367,14 +375,15 @@ export class Momentuum extends ModFeature {
     @CallbackCustom(ModCallbackCustom.POST_NEW_ROOM_REORDERED)
     ResetValues() {
         Holding.clear();
+        timeSpentInRoom = 0;
     }
 
     @Callback(ModCallback.POST_USE_ITEM)
-    MomentuumUse(item: CollectibleType, rng: RNG, player: EntityPlayer, useFlags: BitFlags<UseFlag>, activeSlot: int) : undefined {
+    MomentuumUse(item: CollectibleType, rng: RNG, player: EntityPlayer, useFlags: BitFlags<UseFlag>, activeSlot: int): any {
         if (hasFlag(useFlags, UseFlag.CAR_BATTERY)) return;
         if (!isPlayerAbleToAim(player) && !mapHasPlayer(Holding, player)) {
             sfxManager.Stop(SoundEffect.ITEM_RAISE);
-            return;
+            return {Discharge: false};
         }
         if (!mapHasPlayer(Holding, player)) {
             player.AnimateCollectible(item, PlayerItemAnimation.LIFT_ITEM, CollectibleAnimation.PLAYER_PICKUP)
@@ -383,7 +392,7 @@ export class Momentuum extends ModFeature {
             player.AnimateCollectible(item, PlayerItemAnimation.HIDE_ITEM, CollectibleAnimation.PLAYER_PICKUP)
             mapDeletePlayer(Holding, player);
         }
-        return;
+        return {Discharge: false};
     }
 
     @CallbackCustom(ModCallbackCustom.POST_PLAYER_UPDATE_REORDERED)
@@ -489,6 +498,11 @@ export class Momentuum extends ModFeature {
         let statMult = stats.getAndSetDefault(cacheFlag);
         let statValue = MomentummConsumedStatsValues.get(cacheFlag) ?? 0;
         addPlayerStat(player, cacheFlag, statMult * statValue);
+    }
+
+    @Callback(ModCallback.POST_UPDATE)
+    PostUpdate() {
+        timeSpentInRoom += 1;
     }
 
     // #region Familiar

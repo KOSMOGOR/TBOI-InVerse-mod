@@ -12,7 +12,6 @@
   "license": "GPL-3.0",
   "type": "module",
   "scripts": {
-    "is": "npx isaacscript",
     "build": "tstl",
     "lint": "tsx ./scripts/lint.ts",
     "nuke": "isaacscript nuke",

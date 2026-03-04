@@ -133,7 +133,8 @@ export class Teegro extends ModFeature {
     }
 
     @CallbackCustom(ModCallbackCustom.POST_ROOM_CLEAR_CHANGED, true)
-    PostRoomCleared() {
+    SpawnKeyShardOnRoomClear() {
+        if (!getCharacters().includes(ModEnums.PLAYER_TEEGRO)) return;
         let room = game.GetRoom();
         if (!v.run.tookDamageThisRoom && getRandomInt(1, 2, game.GetRoom().GetAwardSeed()) == 1)
             spawnPickup(HunterKeyVariant, HunterKeySubType.Shard, room.FindFreePickupSpawnPosition(room.GetCenterPos()));
@@ -221,6 +222,7 @@ export class Teegro extends ModFeature {
 
     @CallbackCustom(ModCallbackCustom.POST_PICKUP_INIT_LATE)
     SpawnHunterKeys(pickup: EntityPickup) {
+        if (!getCharacters().includes(ModEnums.PLAYER_TEEGRO)) return;
         if (pickup.Variant == PickupVariant.COLLECTIBLE) return;
         let ind = mod.getPickupIndex(pickup);
         if (v.level.checkedPickups.has(ind)) return;
@@ -231,7 +233,7 @@ export class Teegro extends ModFeature {
             if (rand == 1) {
                 targetVariant = HunterKeyVariant;
                 targetSubType = HunterKeySubType.Full
-            } else if (rand <= 100) {
+            } else if (rand <= 25) {
                 targetVariant = HunterKeyVariant;
                 targetSubType = HunterKeySubType.Shard;
             }
@@ -245,6 +247,7 @@ export class Teegro extends ModFeature {
 
     @Callback(ModCallback.POST_NPC_DEATH)
     OnMinibossDeath(npc: EntityNPC) {
+        if (!getCharacters().includes(ModEnums.PLAYER_TEEGRO)) return;
         if (npc.IsBoss() && inRoomType(RoomType.MINI_BOSS))
             spawnPickup(HunterKeyVariant, HunterKeySubType.Shard, npc.Position, getRandomVector(undefined).Resized(5));
     }

@@ -1,5 +1,5 @@
-import { CardType, CollectibleType, EntityFlag, EntityType, ModCallback, UseFlag, PlayerItemAnimation, SoundEffect, GridRoom, PickupVariant, RoomType, DisplayFlag, RoomDescriptorFlag, GeminiVariant, BeastVariant, DingleVariant, GurglingVariant, ItemPoolType, TrinketType, GridEntityType, PoopGridEntityVariant } from "isaac-typescript-definitions";
-import { addFlag, anyPlayerHasCollectible, bitFlags, Callback, CallbackCustom, COLORS, DefaultMap, defaultMapGetPlayer, game, getEntities, getRandomArrayElement, getRandomArrayElementAndRemove, getRandomInt, getRoomData, getRoomDescriptorReadOnly, getRooms, getUnusedDoorSlots, hasFlag, isRoomType, mapDeletePlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, repeat, sfxManager, smeltTrinket, spawnCollectible, spawnCollectibleFromPool, spawnGridEntityWithVariant, spawnNPC, spawnPickup, teleport, type PlayerIndex } from "isaacscript-common";
+import { CacheFlag, CardType, CollectibleType, EntityFlag, EntityType, ModCallback, UseFlag, PlayerItemAnimation, SoundEffect, GridRoom, PickupVariant, RoomType, DisplayFlag, RoomDescriptorFlag, GeminiVariant, BeastVariant, DingleVariant, GurglingVariant, ItemPoolType, TrinketType, GridEntityType, PoopGridEntityVariant, PlayerType, DamageFlagZero, FireplaceVariant, RockVariant } from "isaac-typescript-definitions";
+import { addFlag, anyPlayerHasCollectible, bitFlags, Callback, CallbackCustom, COLORS, DefaultMap, defaultMapGetPlayer, game, getEntities, getGridEntities, getPlayers, getRandomArrayElement, getRandomArrayElementAndRemove, getRandomInt, getRoomData, getRoomDescriptorReadOnly, getRooms, getUnusedDoorSlots, hasFlag, isRoomType, mapDeletePlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, repeat, sfxManager, smeltTrinket, spawn, spawnCollectible, spawnCollectibleFromPool, spawnGridEntityWithVariant, spawnNPC, spawnPickup, teleport, type PlayerIndex } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { Utils } from "../misc/Utils";
 import { InnateItems } from "../misc/InnateItems";
@@ -8,13 +8,18 @@ const v = {
     run: {
         Fool: false,
         FoolRoomTime: 0,
+        Empress: new DefaultMap<PlayerIndex, int>(0),
         Emperor: new Array<EntityType>(),
         Hermit: false,
         WheelOfFortune: new DefaultMap<PlayerIndex, {remainingUses: int, passedSinceLastUse: int}>(() => { return {remainingUses: 0, passedSinceLastUse: 0}; }),
         Moon: false
     },
     level: {
+        Chariot: new Map<PlayerIndex, boolean>(),
         World: false
+    },
+    room: {
+        Stars: false
     }
 }
 
@@ -22,6 +27,13 @@ const ActiveItems = Utils.getAllActiveItems();
 
 export class MomentuumCards extends ModFeature {
     v = v;
+
+    @Callback(ModCallback.EVALUATE_CACHE)
+    EvaluateCache(player: EntityPlayer, cacheFlag: CacheFlag) {
+        if (mapHasPlayer(v.run.Empress, player)) {
+            if (cacheFlag == CacheFlag.DAMAGE) player.Damage *= 1 + (defaultMapGetPlayer(v.run.Empress, player) * 0.1);
+        }
+    }
 
     @CallbackCustom(ModCallbackCustom.POST_NEW_ROOM_REORDERED)
     ResetValues() {
@@ -45,7 +57,17 @@ export class MomentuumCards extends ModFeature {
                 }
                 break;
             case ModEnums.CARD_MOMENTUUM_PRIESTESS: break;
-            case ModEnums.CARD_MOMENTUUM_EMPRESS: break;
+            case ModEnums.CARD_MOMENTUUM_EMPRESS:
+                if (player.GetPlayerType() == PlayerType.BETHANY && player.GetBoneHearts() == 0) {
+                    game.GetHUD().ShowItemText("Bro why...");
+                    break;
+                }
+                let hearts = player.GetMaxHearts();
+                player.AddMaxHearts(-hearts, true);
+                player.AddBrokenHearts(hearts / 2);
+                if (player.GetBoneHearts() + player.GetSoulHearts() == 0) player.AddBlackHearts(2);
+                Utils.defaultMapSetPlayerPred(v.run.Empress, player, n => n + hearts);
+                break;
             case ModEnums.CARD_MOMENTUUM_EMPEROR:
                 const possibleBosses = [[EntityType.DINGLE], [EntityType.DINGLE, DingleVariant.DANGLE], [EntityType.DUKE_OF_FLIES], [EntityType.GEMINI], [EntityType.GEMINI, GeminiVariant.STEVEN],
                     [EntityType.LARRY_JR], [EntityType.MONSTRO], [EntityType.GURGLING, GurglingVariant.GURGLING, EntityType.GURGLING], [EntityType.GURGLING, GurglingVariant.TURDLING, EntityType.GURGLING],
@@ -71,11 +93,14 @@ export class MomentuumCards extends ModFeature {
                     }
                 });
                 break;
-            case ModEnums.CARD_MOMENTUUM_CHARIOT: break;
+            case ModEnums.CARD_MOMENTUUM_CHARIOT:
+                mapSetPlayer(v.level.Chariot, player, true);
+                player.UseActiveItem(CollectibleType.DARK_ARTS);
+                break;
             case ModEnums.CARD_MOMENTUUM_JUSTICE: break;
             case ModEnums.CARD_MOMENTUUM_HERMIT:
-                player.AddCoins(99);
                 v.run.Hermit = true;
+                player.AddCoins(99);
                 break;
             case ModEnums.CARD_MOMENTUUM_WHEEL:
                 let metronomUsesMult = hasTarotCloth ? 2 : 1;
@@ -102,7 +127,25 @@ export class MomentuumCards extends ModFeature {
                 });
                 break;
             case ModEnums.CARD_MOMENTUUM_TOWER: break;
-            case ModEnums.CARD_MOMENTUUM_STARS: break;
+            case ModEnums.CARD_MOMENTUUM_STARS:
+                v.room.Stars = true;
+                getEntities().forEach(entity => {
+                    if (entity.IsVulnerableEnemy() && !entity.IsBoss()) {
+                        entity.AddEntityFlags(EntityFlag.ICE);
+                        entity.TakeDamage(entity.HitPoints, DamageFlagZero, EntityRef(undefined), 0);
+                    }
+                    if (entity.Type == EntityType.FIREPLACE && [FireplaceVariant.NORMAL, FireplaceVariant.RED].includes(entity.Variant)) {
+                        entity.Remove();
+                        spawn(EntityType.FIREPLACE, FireplaceVariant.BLUE, 0, entity.Position);
+                    }
+                });
+                getGridEntities(GridEntityType.ROCK).forEach(gridEnity => {
+                    if (getRandomInt(1, 20, rng) == 1) {
+                        gridEnity.SetType(GridEntityType.ROCK_TINTED);
+                        gridEnity.Init(gridEnity.GetSaveState().SpawnSeed);
+                    }
+                });
+                break;
             case ModEnums.CARD_MOMENTUUM_MOON:
                 v.run.Moon = true;
                 teleport(GridRoom.ERROR);
@@ -143,6 +186,11 @@ export class MomentuumCards extends ModFeature {
     @CallbackCustom(ModCallbackCustom.POST_NEW_ROOM_REORDERED)
     CardsNewRoom() {
         v.run.FoolRoomTime = game.TimeCounter;
+        if (v.level.Chariot.size > 0) {
+            getPlayers().forEach(player => {
+                if (mapHasPlayer(v.level.Chariot, player)) player.UseActiveItem(CollectibleType.DARK_ARTS);
+            });
+        }
         if (v.run.Moon) {
             v.run.Moon = false;
             let room = game.GetRoom();
@@ -214,14 +262,18 @@ export class MomentuumCards extends ModFeature {
         }
     }
 
-    @Callback(ModCallback.POST_NPC_DEATH)
-    CardsPostNpcDeath(npc: EntityNPC) {
+    @Callback(ModCallback.POST_ENTITY_KILL)
+    CardsPostNpcDeath(entity: Entity) {
         if (v.run.Emperor.length > 0) {
-            let ind = v.run.Emperor.indexOf(npc.Type);
-            if (ind >= 0 && npc.HasEntityFlags(addFlag(EntityFlag.CHARM, EntityFlag.FRIENDLY, EntityFlag.PERSISTENT))) {
+            let ind = v.run.Emperor.indexOf(entity.Type);
+            if (ind >= 0 && entity.HasEntityFlags(addFlag(EntityFlag.CHARM, EntityFlag.FRIENDLY, EntityFlag.PERSISTENT))) {
                 v.run.Emperor.splice(ind, 1);
-                spawnCollectibleFromPool(ItemPoolType.BOSS, game.GetRoom().FindFreePickupSpawnPosition(npc.Position), undefined);
+                spawnCollectibleFromPool(ItemPoolType.BOSS, game.GetRoom().FindFreePickupSpawnPosition(entity.Position), undefined);
             }
+        }
+        if (v.room.Stars) {
+            if (entity.Type == EntityType.FROZEN_ENEMY && getRandomInt(1, 5, Isaac.GetPlayer().GetCardRNG(ModEnums.CARD_MOMENTUUM_STARS)) == 1)
+                spawnPickup(PickupVariant.CARD, 0, entity.Position);
         }
     }
 }
