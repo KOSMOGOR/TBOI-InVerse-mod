@@ -1,5 +1,5 @@
 import { ActiveSlot, ButtonAction, CacheFlag, CardType, CollectibleAnimation, CollectibleType, DamageFlag, Direction, DoorSlot, DoorVariant, EffectVariant, EntityType, ItemType, LaserVariant, LevelStage, ModCallback, PickupVariant, PlayerItemAnimation, RoomType, SoundEffect, TrinketType, UseFlag } from "isaac-typescript-definitions";
-import { addPlayerStat, Callback, CallbackCustom, checkFamiliar, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getPlayers, getPocketItems, getRandomArrayElementAndRemove, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, gridCoordinatesToWorldPosition, hasFlag, isPlayerAbleToAim, isVector, itemConfig, K_COLORS, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PlayerIndex, PocketItemType, sfxManager, spawnEffect, VectorZero } from "isaacscript-common";
+import { addPlayerStat, Callback, CallbackCustom, checkFamiliar, clamp, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getPlayers, getPocketItems, getRandomArrayElementAndRemove, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, gridCoordinatesToWorldPosition, hasFlag, isPlayerAbleToAim, isVector, itemConfig, K_COLORS, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PlayerIndex, PocketItemType, sfxManager, spawnEffect, VectorZero } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { Utils } from "../misc/Utils";
 import { InnateItems } from "../misc/InnateItems";
@@ -11,7 +11,7 @@ const NeedHold = 60 * 1.5;
 const HoldingThreshold = 10;
 const MomentuumSkillsRadius = 80;
 const MomentuumSkillsRadiusSq = MomentuumSkillsRadius * MomentuumSkillsRadius;
-const MomentuumDefaultInvincibility = 60 * 1.5;
+// const MomentuumDefaultInvincibility = 60 * 1.5;
 const MomentummConsumedStatsValues = new Map<CacheFlag, float>([
     [CacheFlag.DAMAGE, 0.5],
     [CacheFlag.FIRE_DELAY, 0.5],
@@ -82,7 +82,7 @@ class MomentuumSkill<T> {
 
 export function addMomentuumCharges(player: EntityPlayer, charges: int) {
     let maxCharges = player.GetPlayerType() == ModEnums.PLAYER_DREAM && player.HasCollectible(CollectibleType.BIRTHRIGHT) ? 24 : 12;
-    let newCharges = Utils.clamp(defaultMapGetPlayer(v.run.MomentuumCharges, player) + charges, 0, maxCharges);
+    let newCharges = clamp(defaultMapGetPlayer(v.run.MomentuumCharges, player) + charges, 0, maxCharges);
     mapSetPlayer(v.run.MomentuumCharges, player, newCharges);
 }
 
@@ -336,24 +336,40 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
 // Fonts and sprites to render
 const font = Font();
 font.Load("font/terminus.fnt");
-const ChargeBars = new DefaultMap<PlayerIndex, Sprite>(() => {
+const ChargeBarSprites = new DefaultMap<PlayerIndex, Sprite>(() => {
     let s = Sprite();
     s.Load("gfx/chargebar.anm2", true);
     return s;
 });
-const Shields = new DefaultMap<PlayerIndex, Sprite>(() => {
+const ShieldSprites = new DefaultMap<PlayerIndex, Sprite>(() => {
     let shield = Sprite();
     shield.Load("gfx/items/collectibles/Momentuum_Shield.anm2", true);
     shield.PlaybackSpeed = 0.4;
     shield.Play("Shield", true);
     return shield;
 });
+const MomentuumChargeSprites = new DefaultMap<PlayerIndex, {base: Sprite, cost: Sprite, empty: Sprite, extra: Sprite, costExtra: Sprite}>(() => {
+    let charges = {base: Sprite(), cost: Sprite(), empty: Sprite(), extra: Sprite(), costExtra: Sprite()}
+    let path = "gfx/ui/Momentuum_Charges.anm2";
+    charges.base.Load(path, true);
+    charges.base.Play("Base", true);
+    charges.cost.Load(path, true);
+    charges.cost.Play("Cost", true);
+    charges.empty.Load(path, true);
+    charges.empty.Play("Empty", true);
+    charges.extra.Load(path, true);
+    charges.extra.Play("Extra", true);
+    charges.costExtra.Load(path, true);
+    charges.costExtra.Play("Extra", true);
+    charges.costExtra.Color = Color(1, 1, 1, 0.5);
+    return charges;
+});
 
 // Data to save
 const v = {
     run: {
         MomentuumCharges: new DefaultMap<PlayerIndex, int>(12),
-        // index of MomentuumSkills
+        // index of all MomentuumSkills, not currently available
         MomentuumSkillChoice: new DefaultMap<PlayerIndex, int>(-1),
         MomentuumInvincibility: new DefaultMap<PlayerIndex, int>(0),
         MomentuumConsumedStats: new DefaultMap<PlayerIndex, DefaultMap<CacheFlag, int>>(() => new DefaultMap(0, [...MomentummConsumedStatsValues.keys()].map(cf => [cf, 0]))),
@@ -444,7 +460,7 @@ export class Momentuum extends ModFeature {
     // Use current Momentuum skill, if can
     UseMomentuumSkill(player: EntityPlayer) {
         let skill = MomentuumSkills[defaultMapGetPlayer(v.run.MomentuumSkillChoice, player)];
-        if (skill == undefined) return;
+        if (!skill) return;
         let chargeCost = skill.getChargeCost(player);
         let playerCharges = defaultMapGetPlayer(v.run.MomentuumCharges, player);
         if (chargeCost <= playerCharges) {
@@ -574,8 +590,36 @@ export class Momentuum extends ModFeature {
     }
 
     RenderMomentuuumCharges(player: EntityPlayer) {
-        let pos = Utils.worldToMirrorScreen(player.Position).add(Vector(-20, -40));
-        font.DrawString(defaultMapGetPlayer(v.run.MomentuumCharges, player).toString(), pos.X, pos.Y, K_COLORS.White, 40, true);
+        // let posText = Utils.worldToMirrorScreen(player.Position).add(Vector(-20, -40));
+        // font.DrawString(defaultMapGetPlayer(v.run.MomentuumCharges, player).toString(), posText.X, posText.Y, K_COLORS.White, 40, true);
+        let pos = Utils.worldToMirrorScreen(player.Position).add(Vector(0, 10));
+        let chargeSprites = defaultMapGetPlayer(MomentuumChargeSprites, player);
+        chargeSprites.base.Render(pos);
+        let skill = MomentuumSkills[defaultMapGetPlayer(v.run.MomentuumSkillChoice, player)];
+        if (!skill) return;
+        let charges = defaultMapGetPlayer(v.run.MomentuumCharges, player);
+        let extraCharges = math.max(charges - 12, 0);
+        let empty = math.max(12 - charges, 0);
+        let cost = skill.getChargeCost(player);
+        let costLower12 = clamp(12 - charges + cost, 0, cost);
+        let costBigger12 = clamp(charges - 12, 0, cost);
+        print(costLower12, costBigger12);
+        if (costBigger12 > 0) {
+            chargeSprites.costExtra.SetFrame(extraCharges - 1);
+            chargeSprites.costExtra.Render(pos);
+        }
+        if (extraCharges - costBigger12 > 0) {
+            chargeSprites.extra.SetFrame(extraCharges - costBigger12 - 1);
+            chargeSprites.extra.Render(pos);
+        }
+        if (costLower12 > 0) {
+            chargeSprites.cost.SetFrame(empty + costLower12 - 1);
+            chargeSprites.cost.Render(pos);
+        }
+        if (empty > 0) {
+            chargeSprites.empty.SetFrame(empty - 1);
+            chargeSprites.empty.Render(pos);
+        }
     }
 
     RenderMomentuumSkills(player: EntityPlayer) {
@@ -583,8 +627,8 @@ export class Momentuum extends ModFeature {
         if (!skills || skills.length == 0) return;
         let scale = 0.5;
         let skillsRenderOffset = Vector(30, 0), xStartOffset = skillsRenderOffset.X * (skills.length - 1) / 2;
-        let pos = Utils.worldToMirrorScreen(player.Position).add(Vector(-20 - xStartOffset, 0));
-        skills.forEach((skillInd, i) => {
+        let pos = Utils.worldToMirrorScreen(player.Position).add(Vector(-20 - xStartOffset, 20));
+        skills.forEach(skillInd => {
             let posMirror = pos;
             font.DrawStringScaled(MomentuumSkills[skillInd]?.name ?? "-", posMirror.X, posMirror.Y, scale, scale, K_COLORS.White, 40, true);
             if (skillInd == mapGetPlayer(v.run.MomentuumSkillChoice, player)) font.DrawString("^", posMirror.X, posMirror.Y + 10, K_COLORS.White, 40, true);
@@ -606,7 +650,7 @@ export class Momentuum extends ModFeature {
     RenderMomentuumHolding(player: EntityPlayer) {
         if (!player.HasCollectible(ModEnums.COLLECTIBLE_MOMENTUUM)) return;
         let hold = mapGetPlayer(Holding, player) ?? 0;
-        let bar = defaultMapGetPlayer(ChargeBars, player);
+        let bar = defaultMapGetPlayer(ChargeBarSprites, player);
         if (hold > HoldingThreshold) {
             let perc = math.floor(100 * hold / NeedHold);
             if (perc < 100) bar.SetFrame("Charging", perc);
@@ -618,7 +662,7 @@ export class Momentuum extends ModFeature {
     RenderMomentuumShield(player: EntityPlayer) {
         if (!player.HasCollectible(ModEnums.COLLECTIBLE_MOMENTUUM)) return;
         let shoudRenderShield = mapHasPlayer(Holding, player) && mapGetPlayer(Holding, player) == 0 && defaultMapGetPlayer(v.run.MomentuumCharges, player) > 0;
-        let shield = defaultMapGetPlayer(Shields, player);
+        let shield = defaultMapGetPlayer(ShieldSprites, player);
         if (shoudRenderShield) shield.Render(Utils.worldToMirrorScreen(player.Position));
         shield.Update();
     }

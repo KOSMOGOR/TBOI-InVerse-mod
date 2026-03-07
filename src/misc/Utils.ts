@@ -36,10 +36,6 @@ export class Utils {
         return true;
     }
 
-    static clamp(n: number, min: number, max: number): number {
-        return math.max(math.min(n, max), min);
-    }
-
     static getAllActiveItems(): CollectibleType[] {
         let items = [];
         let size = itemConfig.GetCollectibles().Size;
