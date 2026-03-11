@@ -1,5 +1,5 @@
 import { ActiveSlot, ButtonAction, CacheFlag, CardType, CollectibleAnimation, CollectibleType, DamageFlag, Direction, DoorSlot, DoorVariant, EffectVariant, EntityType, ItemType, LaserVariant, LevelStage, ModCallback, PickupVariant, PlayerItemAnimation, RoomType, SoundEffect, TrinketType, UseFlag } from "isaac-typescript-definitions";
-import { addPlayerStat, Callback, CallbackCustom, checkFamiliar, clamp, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getPlayers, getPocketItems, getRandomArrayElementAndRemove, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, gridCoordinatesToWorldPosition, hasFlag, isPlayerAbleToAim, isVector, itemConfig, K_COLORS, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PlayerIndex, PocketItemType, sfxManager, spawnEffect, VectorZero } from "isaacscript-common";
+import { addPlayerStat, Callback, CallbackCustom, checkFamiliar, clamp, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getPlayers, getPocketItems, getRandomArrayElementAndRemove, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, gridCoordinatesToWorldPosition, hasFlag, isPlayerAbleToAim, isSecretRoomType, isVector, itemConfig, K_COLORS, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PlayerIndex, PocketItemType, sfxManager, spawnEffect, VectorZero } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { Utils } from "../misc/Utils";
 import { InnateItems } from "../misc/InnateItems";
@@ -202,7 +202,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
     ).setName("Charge"),
     new MomentuumSkill<TargetEntity>(
         (player) => {
-            let collectibles = getEntities(EntityType.PICKUP, PickupVariant.COLLECTIBLE)
+            let collectibles = getEntities(EntityType.PICKUP)
                 .filter(ent => player.Position.DistanceSquared(ent.Position) <= MomentuumSkillsRadiusSq && ent.SubType != CollectibleType.NULL && (ent.ToPickup()?.Price ?? 0) > 0)
                 .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
             return collectibles[0]?.ToPickup();
@@ -228,7 +228,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
         (player) => {
             if (timeSpentInRoom < 5) return;
             let doors = getDoors()
-                .filter(door => player.Position.DistanceSquared(door.Position) <= MomentuumSkillsRadiusSq && !door.IsOpen())
+                .filter(door => player.Position.DistanceSquared(door.Position) <= MomentuumSkillsRadiusSq && !door.IsOpen() && !isSecretRoomType(door.TargetRoomType))
                 .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
             return doors[0];
         },
@@ -596,14 +596,12 @@ export class Momentuum extends ModFeature {
         let chargeSprites = defaultMapGetPlayer(MomentuumChargeSprites, player);
         chargeSprites.base.Render(pos);
         let skill = MomentuumSkills[defaultMapGetPlayer(v.run.MomentuumSkillChoice, player)];
-        if (!skill) return;
         let charges = defaultMapGetPlayer(v.run.MomentuumCharges, player);
         let extraCharges = math.max(charges - 12, 0);
         let empty = math.max(12 - charges, 0);
-        let cost = skill.getChargeCost(player);
+        let cost = skill?.getChargeCost(player) ?? 0;
         let costLower12 = clamp(12 - charges + cost, 0, cost);
         let costBigger12 = clamp(charges - 12, 0, cost);
-        print(costLower12, costBigger12);
         if (costBigger12 > 0) {
             chargeSprites.costExtra.SetFrame(extraCharges - 1);
             chargeSprites.costExtra.Render(pos);

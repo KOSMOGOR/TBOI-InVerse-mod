@@ -1,6 +1,6 @@
-import { addFlag, anyPlayerHasCollectible, Callback, CallbackCustom, game, getAdjustedPrice, getCharacters, getRandomInt, getRandomVector, hasFlag, inRoomType, itemConfig, K_COLORS, ModCallbackCustom, ModFeature, sfxManager, spawnEffect, spawnPickup, type PickupIndex } from "isaacscript-common";
+import { addFlag, anyPlayerHasCollectible, Callback, CallbackCustom, game, getAdjustedPrice, getCharacters, getPickups, getPlayersOfType, getRandomInt, getRandomVector, hasFlag, inRoomType, itemConfig, K_COLORS, ModCallbackCustom, ModFeature, sfxManager, spawnCollectibleFromPool, spawnEffect, spawnPickup, type PickupIndex } from "isaacscript-common";
 import { mod } from "../mod";
-import { CacheFlag, CollectibleType, DamageFlag, EntityType, ItemConfigTag, ModCallback, PickupPrice, PickupVariant, RoomType, SoundEffect } from "isaac-typescript-definitions";
+import { CacheFlag, CollectibleType, DamageFlag, EntityType, ItemConfigTag, ItemPoolType, ModCallback, PickupPrice, PickupVariant, RoomType, SoundEffect } from "isaac-typescript-definitions";
 import { ModEnums } from "../ModEnums";
 import { CallbackPostPlayerRenderAbove } from "../misc/AdditionalCallbacks";
 import { Utils } from "../misc/Utils";
@@ -53,7 +53,11 @@ const v = {
         pickupsInfo: new Map<PickupIndex, {locked: boolean, canTouch: boolean, cost: number, wait: number}>(),
         // For turning pickups into hunter keys
         checkedPickups: new Set<PickupIndex>(),
-        hunterChestRewards: new Map<PickupIndex, Array<[PickupVariant, int?]>>()
+        hunterChestRewards: new Map<PickupIndex, Array<[PickupVariant, int?]>>(),
+        pickupsRemoveOnNewRoom: new Set<PickupIndex>()
+    },
+    room: {
+        droppedKey: false
     }
 }
 
@@ -130,6 +134,22 @@ export class Teegro extends ModFeature {
     ResetValues() {
         lockedEffects.clear();
         v.run.tookDamageThisRoom = false;
+        getPickups().forEach(pickup => {
+            let ind = mod.getPickupIndex(pickup);
+            if (v.level.pickupsRemoveOnNewRoom.has(ind)) {
+                pickup.Remove();
+                v.level.pickupsRemoveOnNewRoom.delete(ind);
+            }
+        });
+    }
+
+    @CallbackCustom(ModCallbackCustom.POST_NEW_ROOM_REORDERED)
+    SpawnKeyOnNewRoom() {
+        if (!getCharacters().includes(ModEnums.PLAYER_TEEGRO)) return;
+        let room = game.GetRoom();
+        if (!room.IsFirstVisit()) return;
+        if (room.GetType() == RoomType.ANGEL)
+            spawnPickup(HunterKeyVariant, HunterKeySubType.Full, room.FindFreePickupSpawnPosition(room.GetCenterPos()));
     }
 
     @CallbackCustom(ModCallbackCustom.POST_ROOM_CLEAR_CHANGED, true)
@@ -227,8 +247,8 @@ export class Teegro extends ModFeature {
         let ind = mod.getPickupIndex(pickup);
         if (v.level.checkedPickups.has(ind)) return;
         v.level.checkedPickups.add(ind);
+        let rand = getRandomInt(1, 100, pickup.InitSeed);
         if (pickup.Variant == PickupVariant.KEY) {
-            let rand = getRandomInt(1, 100, pickup.InitSeed);
             let targetVariant = pickup.Variant, targetSubType = pickup.SubType
             if (rand == 1) {
                 targetVariant = HunterKeyVariant;
@@ -242,14 +262,46 @@ export class Teegro extends ModFeature {
                 pickup.AutoUpdatePrice = false;
             }
             pickup.GetSprite().LoadGraphics()
+        } else if (Isaac.GetPlayer().GetNumCoins() >= 30 && pickup.Variant == PickupVariant.COIN) {
+            if (rand <= 10) {
+                pickup.Morph(EntityType.PICKUP, HunterKeyVariant, HunterKeySubType.Shard, true, true);
+                pickup.AutoUpdatePrice = false;
+            }
         }
+    }
+
+    @CallbackCustom(ModCallbackCustom.POST_NEW_LEVEL_REORDERED)
+    BirthrightEffect() {
+        let teegrosWithBirthright = getPlayersOfType(ModEnums.PLAYER_TEEGRO).filter(player => player.HasCollectible(CollectibleType.BIRTHRIGHT));
+        if (teegrosWithBirthright.length == 0) return;
+        let positions = [Vector(80, 160), Vector(560, 160), Vector(80, 400), Vector(560, 400)];
+        let teegro = teegrosWithBirthright[0]; if (!teegro) return;
+        let room = game.GetRoom();
+        teegro.AddCollectible(CollectibleType.CHAOS);
+        positions.forEach(position => {
+            let pickup = spawnCollectibleFromPool(ItemPoolType.TREASURE, room.FindFreePickupSpawnPosition(position), undefined);
+            let ind = mod.getPickupIndex(pickup);
+            v.level.pickupsInfo.set(ind, {
+                locked: true,
+                canTouch: true,
+                cost: getRandomInt(2, 3, pickup.InitSeed) * 4,
+                wait: 15
+            });
+            v.level.pickupsRemoveOnNewRoom.add(ind);
+        });
+        teegro.RemoveCollectible(CollectibleType.CHAOS);
     }
 
     @Callback(ModCallback.POST_NPC_DEATH)
     OnMinibossDeath(npc: EntityNPC) {
         if (!getCharacters().includes(ModEnums.PLAYER_TEEGRO)) return;
-        if (npc.IsBoss() && inRoomType(RoomType.MINI_BOSS))
-            spawnPickup(HunterKeyVariant, HunterKeySubType.Shard, npc.Position, getRandomVector(undefined).Resized(5));
+        if (npc.IsBoss() && !v.room.droppedKey) {
+            let subType = inRoomType(RoomType.MINI_BOSS) ? HunterKeySubType.Shard : inRoomType(RoomType.BOSS, RoomType.ANGEL, RoomType.DEVIL) ? HunterKeySubType.Full : -1;
+            if (subType != -1) {
+                spawnPickup(HunterKeyVariant, subType, npc.Position, getRandomVector(undefined).Resized(5));
+                v.room.droppedKey = true;
+            }
+        }
     }
 
     @Callback(ModCallback.ENTITY_TAKE_DMG, EntityType.PLAYER)
