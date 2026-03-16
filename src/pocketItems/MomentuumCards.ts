@@ -239,7 +239,12 @@ export class MomentuumCards extends ModFeature {
             v.run.Moon = false;
             let room = game.GetRoom();
             spawnPickup(PickupVariant.CARD, CardType.FOOL, room.FindFreePickupSpawnPosition(room.GetCenterPos()));
-            if (anyPlayerHasCollectible(CollectibleType.TAROT_CLOTH)) spawnCollectible(Utils.getRandomGlitchedItem(Isaac.GetPlayer().GetCardRNG(ModEnums.CARD_MOMENTUUM_MOON)), room.FindFreePickupSpawnPosition(room.GetCenterPos()), undefined);
+            if (anyPlayerHasCollectible(CollectibleType.TAROT_CLOTH)) {
+                let player = Isaac.GetPlayer();
+                player.AddCollectible(CollectibleType.TMTRAINER);
+                spawnCollectible(CollectibleType.SAD_ONION, room.FindFreePickupSpawnPosition(room.GetCenterPos()), undefined);
+                player.RemoveCollectible(CollectibleType.TMTRAINER);
+            }
         }
         if (v.level.World) {
             if (anyPlayerHasCollectible(CollectibleType.TAROT_CLOTH) && !isRoomType(getRoomData(), RoomType.ERROR, RoomType.DEVIL, RoomType.ANGEL, RoomType.DUNGEON, RoomType.BOSS_RUSH, RoomType.GREED_EXIT, RoomType.ULTRA_SECRET) && !hasFlag(getRoomDescriptorReadOnly().Flags, RoomDescriptorFlag.RED_ROOM)) {

@@ -1,5 +1,5 @@
 import { ActiveSlot, ButtonAction, CacheFlag, CardType, CollectibleAnimation, CollectibleType, DamageFlag, Direction, DoorSlot, DoorVariant, EffectVariant, EntityType, ItemType, LaserVariant, LevelStage, ModCallback, PickupVariant, PlayerItemAnimation, RoomType, SoundEffect, TrinketType, UseFlag } from "isaac-typescript-definitions";
-import { addPlayerStat, Callback, CallbackCustom, checkFamiliar, clamp, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getPlayers, getPocketItems, getRandomArrayElementAndRemove, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, gridCoordinatesToWorldPosition, hasFlag, isPlayerAbleToAim, isSecretRoomType, isVector, itemConfig, K_COLORS, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PlayerIndex, PocketItemType, sfxManager, spawnEffect, VectorZero } from "isaacscript-common";
+import { addPlayerStat, arrayEquals, Callback, CallbackCustom, checkFamiliar, clamp, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getPlayers, getPocketItems, getRandomArrayElementAndRemove, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, gridCoordinatesToWorldPosition, hasFlag, inRange, isPlayerAbleToAim, isSecretRoomType, isVector, itemConfig, K_COLORS, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PlayerIndex, PocketItemType, sfxManager, spawnEffect, VectorZero } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { Utils } from "../misc/Utils";
 import { InnateItems } from "../misc/InnateItems";
@@ -87,7 +87,7 @@ export function addMomentuumCharges(player: EntityPlayer, charges: int) {
 }
 
 function getMomentuumCardFromRegular(card: CardType): CardType | undefined {
-    if (CardType.REVERSE_FOOL <= card && card <= CardType.REVERSE_WORLD) card += CardType.FOOL - CardType.REVERSE_FOOL;
+    if (inRange(card, CardType.REVERSE_FOOL, CardType.REVERSE_WORLD)) card += CardType.FOOL - CardType.REVERSE_FOOL;
     if (CardType.FOOL > card || card > CardType.WORLD) return undefined;
     let startMomentuumCard = Isaac.GetCardIdByName("momentuum_fool");
     let momentuumCardType = card + startMomentuumCard - CardType.FOOL;
@@ -95,7 +95,7 @@ function getMomentuumCardFromRegular(card: CardType): CardType | undefined {
 }
 
 function canCardBecomeMomentuumCard(card: CardType) : boolean {
-    return CardType.FOOL <= card && card <= CardType.WORLD || CardType.REVERSE_FOOL <= card && card <= CardType.REVERSE_WORLD;
+    return inRange(card, CardType.FOOL, CardType.WORLD) || inRange(card, CardType.REVERSE_FOOL, CardType.REVERSE_WORLD);
 }
 
 type TargetEntity = Entity | undefined;
@@ -140,8 +140,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
         (player, target) => {
             let pickup = target?.ToPickup(); if (!pickup) return;
             player.AddCollectible(CollectibleType.TMTRAINER);
-            let item = Utils.getRandomGlitchedItem(player.GetCollectibleRNG(ModEnums.COLLECTIBLE_MOMENTUUM));
-            pickup.Morph(EntityType.PICKUP, PickupVariant.COLLECTIBLE, item, true);
+            pickup.Morph(EntityType.PICKUP, PickupVariant.COLLECTIBLE, CollectibleType.SAD_ONION, true);
             player.RemoveCollectible(CollectibleType.TMTRAINER);
             spawnEffect(EffectVariant.POOF_1, 0, pickup.Position);
         },
@@ -441,7 +440,7 @@ export class Momentuum extends ModFeature {
                 if (MomentuumSkills[i]?.canUseSkill(player)) newAvailableMomentuumSkills.push(i);
             }
             let skillChoice = defaultMapGetPlayer(v.run.MomentuumSkillChoice, player);
-            if (!Utils.arraysEqual(mapGetPlayer(AvailableMomentuumSkills, player) ?? [], newAvailableMomentuumSkills)) {
+            if (!arrayEquals(mapGetPlayer(AvailableMomentuumSkills, player) ?? [], newAvailableMomentuumSkills)) {
                 mapSetPlayer(AvailableMomentuumSkills, player, newAvailableMomentuumSkills);
                 skillChoice = newAvailableMomentuumSkills[0] ?? -1;
             }

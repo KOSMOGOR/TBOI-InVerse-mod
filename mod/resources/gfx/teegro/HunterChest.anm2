@@ -2,7 +2,7 @@
 	<Info CreatedBy="robot" CreatedOn="23.08.2024 22:47:29" Version="109" Fps="30"/>
 	<Content>
 		<Spritesheets>
-			<Spritesheet Path="Hunter_Chest.png" Id="0"/>
+			<Spritesheet Path="HunterChest.png" Id="0"/>
 			<Spritesheet Path="shadow.png" Id="1"/>
 		</Spritesheets>
 		<Layers>

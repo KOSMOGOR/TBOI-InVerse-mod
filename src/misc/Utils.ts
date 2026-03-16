@@ -5,7 +5,6 @@ export class Utils {
     static getItemFromPool(pools: ItemPoolType | ItemPoolType[], rngOrSeed: RNG | Seed, minimumQuality: int = 0): CollectibleType {
         let itemPool = game.GetItemPool();
         let items: CollectibleType[] = [];
-        // if (pools == undefined) pools = [0, 1, 2, 3, 4, 5, 6, 26];
         let roomSeed = game.GetRoom().GetAwardSeed();
         if (!Array.isArray(pools)) pools = [pools];
         pools.forEach(pool => {
@@ -23,17 +22,6 @@ export class Utils {
         let item = getRandomArrayElement(items, rng);
         itemPool.RemoveCollectible(item);
         return item;
-    }
-
-    static getRandomGlitchedItem(rng: RNG) {
-        return getRandomInt(4294960001, 4294967295, rng);
-    }
-
-    static arraysEqual(arr1: any[], arr2: any[]): boolean {
-        if (arr1.length !== arr2.length) return false;
-        let length = arr1.length;
-        for (let i = 0; i < length; i++) if (arr1[i] !== arr2[i]) return false;
-        return true;
     }
 
     static getAllActiveItems(): CollectibleType[] {

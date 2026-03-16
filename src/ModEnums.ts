@@ -32,6 +32,15 @@ export class ModEnums {
     static CARD_MOMENTUUM_JUDGEMENT = Isaac.GetCardIdByName("momentuum_judgement");
     static CARD_MOMENTUUM_WORLD = Isaac.GetCardIdByName("momentuum_world");
 
+    static PICKUP_HUNTER_KEY_VARIANT = Isaac.GetEntityVariantByName("HunterKey");
+    static PICKIP_HUNTER_KEY_SUBTYPE = {
+        Shard: 1,
+        Half: 2,
+        Full: 3,
+        Double: 4,
+    };
+    static PICKUP_HUNTER_CHEST = Isaac.GetEntityVariantByName("HunterChest");
+
     static FAMILIAR_MOMENTUUM = Isaac.GetEntityVariantByName("MomentuumFamiliar");
 
     static CALLBACK_POST_PLAYER_RENDER_ABOVE = 1000;
