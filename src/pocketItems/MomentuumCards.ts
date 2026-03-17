@@ -1,8 +1,9 @@
-import { CacheFlag, CardType, CollectibleType, EntityFlag, EntityType, ModCallback, UseFlag, PlayerItemAnimation, SoundEffect, GridRoom, PickupVariant, RoomType, DisplayFlag, RoomDescriptorFlag, GeminiVariant, BeastVariant, DingleVariant, GurglingVariant, ItemPoolType, TrinketType, GridEntityType, PoopGridEntityVariant, PlayerType, DamageFlagZero, FireplaceVariant, PickupPrice } from "isaac-typescript-definitions";
+import { CacheFlag, CardType, CollectibleType, EntityFlag, EntityType, ModCallback, UseFlag, PlayerItemAnimation, SoundEffect, GridRoom, PickupVariant, RoomType, DisplayFlag, RoomDescriptorFlag, GeminiVariant, BeastVariant, DingleVariant, GurglingVariant, ItemPoolType, TrinketType, GridEntityType, PoopGridEntityVariant, PlayerType, DamageFlagZero, FireplaceVariant, PickupPrice, BombSubType } from "isaac-typescript-definitions";
 import { addFlag, anyPlayerHasCollectible, bitFlags, Callback, CallbackCustom, COLORS, DefaultMap, defaultMapGetPlayer, game, getEntities, getGridEntities, getPlayers, getRandomArrayElement, getRandomInt, getRoomData, getRoomDescriptorReadOnly, getRoomGridIndex, getRooms, getUnusedDoorSlots, hasFlag, inRoomType, isRoomType, itemConfig, mapDeletePlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, repeat, sfxManager, smeltTrinket, spawn, spawnCollectible, spawnCollectibleFromPool, spawnNPC, spawnPickup, teleport, type PlayerIndex } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { Utils } from "../misc/Utils";
 import { InnateItems } from "../misc/InnateItems";
+import { TeegroData } from "../characters/Teegro";
 
 const v = {
     run: {
@@ -72,6 +73,7 @@ export class MomentuumCards extends ModFeature {
         let hasTarotCloth = player.HasCollectible(CollectibleType.TAROT_CLOTH);
         if (hasFlag(useFlags, UseFlag.CAR_BATTERY)) return;
         let entity: Entity;
+        let room = game.GetRoom();
         switch (cardType) {
             case ModEnums.CARD_MOMENTUUM_FOOL:
                 v.run.Fool = true;
@@ -126,9 +128,17 @@ export class MomentuumCards extends ModFeature {
                 break;
             case ModEnums.CARD_MOMENTUUM_CHARIOT:
                 mapSetPlayer(v.level.Chariot, player, true);
-                player.UseActiveItem(CollectibleType.DARK_ARTS);
+                player.UseActiveItem(CollectibleType.DARK_ARTS, UseFlag.NO_ANIMATION);
                 break;
-            case ModEnums.CARD_MOMENTUUM_JUSTICE: break;
+            case ModEnums.CARD_MOMENTUUM_JUSTICE:
+                let mult = hasTarotCloth ? 2 : 1;
+                let chestCount = getRandomInt(2 * mult, 4 * mult, rng);
+                repeat(chestCount, () => {
+                    let pos = room.FindFreePickupSpawnPosition(player.Position, 20);
+                    spawnPickup(ModEnums.PICKUP_HUNTER_CHEST, 0, pos);
+                });
+                TeegroData.run.keyShards += chestCount * 4;
+                break;
             case ModEnums.CARD_MOMENTUUM_HERMIT:
                 v.run.Hermit = true;
                 player.AddCoins(99);
@@ -149,7 +159,6 @@ export class MomentuumCards extends ModFeature {
                 sfxManager.Play(SoundEffect.SATAN_GROW);
                 break;
             case ModEnums.CARD_MOMENTUUM_TEMPERANCE:
-                let room = game.GetRoom();
                 spawnCollectible(CollectibleType.BREAKFAST, room.FindFreePickupSpawnPosition(player.Position, 20), undefined);
                 InnateItems.AddItemForRoom(player, CollectibleType.BINGE_EATER);
                 let bingeItems = [CollectibleType.LUNCH, CollectibleType.DINNER, CollectibleType.DESSERT, CollectibleType.BREAKFAST,
@@ -164,7 +173,12 @@ export class MomentuumCards extends ModFeature {
                 if (getRoomGridIndex() == GridRoom.DEVIL) game.GetLevel().InitializeDevilAngelRoom(false, true);
                 else teleport(GridRoom.DEVIL);
                 break;
-            case ModEnums.CARD_MOMENTUUM_TOWER: break;
+            case ModEnums.CARD_MOMENTUUM_TOWER:
+                repeat(hasTarotCloth ? 2 : 1, () => {
+                    let pos = room.FindFreePickupSpawnPosition(player.Position, 20);
+                    spawnPickup(PickupVariant.BOMB, BombSubType.GIGA, pos);
+                });
+                break;
             case ModEnums.CARD_MOMENTUUM_STARS:
                 v.room.Stars = true;
                 getEntities().forEach(entity => {
@@ -247,7 +261,7 @@ export class MomentuumCards extends ModFeature {
             }
         }
         if (v.level.World) {
-            if (anyPlayerHasCollectible(CollectibleType.TAROT_CLOTH) && !isRoomType(getRoomData(), RoomType.ERROR, RoomType.DEVIL, RoomType.ANGEL, RoomType.DUNGEON, RoomType.BOSS_RUSH, RoomType.GREED_EXIT, RoomType.ULTRA_SECRET) && !hasFlag(getRoomDescriptorReadOnly().Flags, RoomDescriptorFlag.RED_ROOM)) {
+            if (!isRoomType(getRoomData(), RoomType.ERROR, RoomType.DEVIL, RoomType.ANGEL, RoomType.DUNGEON, RoomType.BOSS_RUSH, RoomType.GREED_EXIT, RoomType.ULTRA_SECRET) && !hasFlag(getRoomDescriptorReadOnly().Flags, RoomDescriptorFlag.RED_ROOM)) {
                 let level = game.GetLevel();
                 let gridIndex = level.GetCurrentRoomDesc().SafeGridIndex;
                 for (const doorSlot of getUnusedDoorSlots()) level.MakeRedRoomDoor(gridIndex, doorSlot);
@@ -270,7 +284,7 @@ export class MomentuumCards extends ModFeature {
     @CallbackCustom(ModCallbackCustom.POST_ROOM_CLEAR_CHANGED, true)
     CardsRoomCleared() {
         if (v.level.World) {
-            if (hasFlag(getRoomDescriptorReadOnly().Flags, RoomDescriptorFlag.RED_ROOM) && getRandomInt(1, 5, Isaac.GetPlayer().GetCardRNG(ModEnums.CARD_MOMENTUUM_WORLD)) == 1) {
+            if (anyPlayerHasCollectible(CollectibleType.TAROT_CLOTH) && hasFlag(getRoomDescriptorReadOnly().Flags, RoomDescriptorFlag.RED_ROOM) && getRandomInt(1, 5, Isaac.GetPlayer().GetCardRNG(ModEnums.CARD_MOMENTUUM_WORLD)) == 1) {
                 let level = game.GetLevel();
                 let gridIndex = level.GetCurrentRoomDesc().SafeGridIndex;
                 for (const doorSlot of getUnusedDoorSlots()) level.MakeRedRoomDoor(gridIndex, doorSlot);

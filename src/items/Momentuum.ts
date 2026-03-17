@@ -1,5 +1,5 @@
-import { ActiveSlot, ButtonAction, CacheFlag, CardType, CollectibleAnimation, CollectibleType, DamageFlag, Direction, DoorSlot, DoorVariant, EffectVariant, EntityType, ItemType, LaserVariant, LevelStage, ModCallback, PickupVariant, PlayerItemAnimation, RoomType, SoundEffect, TrinketType, UseFlag } from "isaac-typescript-definitions";
-import { addPlayerStat, arrayEquals, Callback, CallbackCustom, checkFamiliar, clamp, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getPlayers, getPocketItems, getRandomArrayElementAndRemove, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, gridCoordinatesToWorldPosition, hasFlag, inRange, isPlayerAbleToAim, isSecretRoomType, isVector, itemConfig, K_COLORS, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PlayerIndex, PocketItemType, sfxManager, spawnEffect, VectorZero } from "isaacscript-common";
+import { ActiveSlot, ButtonAction, CacheFlag, CardType, CollectibleAnimation, CollectibleType, DamageFlag, Direction, DoorSlot, DoorVariant, EffectVariant, EntityType, ItemType, LaserVariant, LevelCurse, LevelStage, ModCallback, PickupVariant, PlayerItemAnimation, RoomType, SoundEffect, TrinketType, UseFlag } from "isaac-typescript-definitions";
+import { addFlag, addPlayerStat, arrayEquals, Callback, CallbackCustom, checkFamiliar, clamp, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getGoldenTrinketType, getPlayers, getPlayerTrinkets, getPocketItems, getRandomArrayElementAndRemove, getRandomInt, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, gridCoordinatesToWorldPosition, hasFlag, inRange, isEmptyFlag, isEntity, isGoldenTrinketType, isPlayerAbleToAim, isSecretRoomType, isVector, itemConfig, K_COLORS, logDamageFlags, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PlayerIndex, PocketItemType, removeFlag, sfxManager, spawnEffect, spawnTrinket, VectorZero } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { Utils } from "../misc/Utils";
 import { InnateItems } from "../misc/InnateItems";
@@ -20,7 +20,7 @@ const MomentummConsumedStatsValues = new Map<CacheFlag, float>([
     [CacheFlag.SPEED, 0.2],
     [CacheFlag.LUCK, 1]
 ]);
-const FamiliarCooldown = 42;
+const FamiliarCooldown = 21;
 const DirectionToAnim = {
     [Direction.NO_DIRECTION]: "Down",
     [Direction.UP]: "Up",
@@ -80,8 +80,12 @@ class MomentuumSkill<T> {
     }
 }
 
+function getMaxMomentuumCharges(player: EntityPlayer) {
+    if (player.GetPlayerType() == ModEnums.PLAYER_DREAM && player.HasCollectible(CollectibleType.BIRTHRIGHT) || player.HasCollectible(CollectibleType.BATTERY)) return 24;
+    return 12;
+}
 export function addMomentuumCharges(player: EntityPlayer, charges: int) {
-    let maxCharges = player.GetPlayerType() == ModEnums.PLAYER_DREAM && player.HasCollectible(CollectibleType.BIRTHRIGHT) ? 24 : 12;
+    let maxCharges = getMaxMomentuumCharges(player);
     let newCharges = clamp(defaultMapGetPlayer(v.run.MomentuumCharges, player) + charges, 0, maxCharges);
     mapSetPlayer(v.run.MomentuumCharges, player, newCharges);
 }
@@ -183,19 +187,29 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
         },
         () => 4
     ).setName("Copy"),
-    new MomentuumSkill<TargetEntity>(
+    new MomentuumSkill<TargetEntity | TargetEmpty>(
         (player) => {
             let collectibles = getEntities(EntityType.PICKUP, PickupVariant.COLLECTIBLE)
                 .filter(ent => player.Position.DistanceSquared(ent.Position) <= MomentuumSkillsRadiusSq && ent.SubType != CollectibleType.NULL && ent.ToPickup()?.Price == 0)
                 .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
-            return collectibles[0]?.ToPickup();
+            if (collectibles.length > 0) return collectibles[0]?.ToPickup();
+            else if (player.HasCollectible(CollectibleType.SHARP_PLUG)) return {};
+            return undefined;
         },
         (player, target) => {
-            let pickup = target?.ToPickup(); if (!pickup) return;
-            let charges = pickup.SubType == ModEnums.COLLECTIBLE_MOMENTUUM ? 12 : 2 + (itemConfig.GetCollectible(pickup.SubType)?.Quality ?? 0) * 2;
-            addMomentuumCharges(player, charges);
-            pickup.Remove();
-            spawnEffect(EffectVariant.POOF_1, 0, pickup.Position);
+            if (isEntity(target)) {
+                let pickup = target?.ToPickup(); if (!pickup) return;
+                let charges = 0;
+                if (pickup.SubType == ModEnums.COLLECTIBLE_MOMENTUUM) charges = 12
+                else if ([CollectibleType.DATAMINER, CollectibleType.TMTRAINER].includes(pickup.SubType)) charges = getRandomInt(1, getMaxMomentuumCharges(player), pickup.DropSeed);
+                else charges = 2 + (itemConfig.GetCollectible(pickup.SubType)?.Quality ?? 0) * 2;
+                addMomentuumCharges(player, charges);
+                pickup.Remove();
+                spawnEffect(EffectVariant.POOF_1, 0, pickup.Position);
+            } else if (typeof target == "object" && player.HasCollectible(CollectibleType.SHARP_PLUG)) {
+                player.TakeDamage(2, addFlag(DamageFlag.RED_HEARTS, DamageFlag.ISSAC_HEART, DamageFlag.INVINCIBLE, DamageFlag.IV_BAG, DamageFlag.NO_MODIFIERS), EntityRef(player), 30);
+                addMomentuumCharges(player, 2);
+            }
         },
         () => 0
     ).setName("Charge"),
@@ -212,15 +226,9 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
         },
         (player, target) => {
             let pickup = target?.ToPickup(); if (!pickup) return 0;
-            // Not collectible
-            if (pickup.Variant != PickupVariant.COLLECTIBLE) return 2;
-            let itemConfigItem = itemConfig.GetCollectible(pickup.SubType);
-            // Glitch item
-            if (!itemConfigItem) return 6;
-            // Collectible with discount
-            if (pickup.Price != itemConfigItem.ShopPrice && pickup.Price != itemConfigItem.DevilPrice) return 4;
-            // Regular collectible
-            return 6;
+            if (!pickup.Price) return 0;
+            let coinsPrice = pickup.Price < 0 ? 15 : pickup.Price;
+            return math.ceil(coinsPrice / 7) * 2;
         }
     ).setName("Free"),
     new MomentuumSkill<TargetGridEntity>(
@@ -293,16 +301,6 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
             return {};
         },
         (player) => {
-            player.UseActiveItem(CollectibleType.WE_NEED_TO_GO_DEEPER, UseFlag.NO_ANIMATION);
-            Utils.defaultMapSetPlayerPred(v.run.MomentuumDeeperUses, player, uses => uses + 1);
-        },
-        (player) => 4 + 2 * defaultMapGetPlayer(v.run.MomentuumDeeperUses, player)
-    ).setName("Deeper"),
-    new MomentuumSkill<TargetEmpty>(
-        () => {
-            return {};
-        },
-        (player) => {
             game.GetRoom().MamaMegaExplosion(player.Position, player);
         },
         () => game.GetRoom().GetType() == RoomType.BOSS ? 8 : 4
@@ -321,13 +319,48 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
     new MomentuumSkill<TargetEmpty>(
         () => {
             let roomType = game.GetRoom().GetType();
-            return roomType == RoomType.ANGEL || roomType == RoomType.DEVIL ? {} : undefined;
+            return [RoomType.ANGEL, RoomType.DEVIL].includes(roomType) && !v.level.MomentuumFixateUsed ? {} : undefined;
         },
         (player) => {
+            v.level.MomentuumFixateUsed = true;
             InnateItems.AddItemForLevel(player, CollectibleType.GOAT_HEAD);
         },
         () => 2
     ).setName("Fixate"),
+    new MomentuumSkill<TargetEmpty>(
+        () => {
+            let curses = game.GetLevel().GetCurses();
+            return isEmptyFlag(removeFlag(curses, LevelCurse.GIANT)) ? undefined : {};
+        },
+        () => {
+            let level = game.GetLevel();
+            let curses = level.GetCurses();
+            level.RemoveCurses(removeFlag(curses, LevelCurse.GIANT));
+        },
+        () => 3
+    ).setName("Cleanse"),
+    new MomentuumSkill<TargetEmpty>(
+        (player) => {
+            return getPlayerTrinkets(player).some(trinket => !isGoldenTrinketType(trinket)) ? {} : undefined;
+        },
+        (player) => {
+            getPlayerTrinkets(player).forEach(trinket => {
+                player.TryRemoveTrinket(trinket);
+                let pos = game.GetRoom().FindFreePickupSpawnPosition(player.Position, 20);
+                spawnTrinket(getGoldenTrinketType(trinket), pos);
+            });
+        },
+        () => 3
+    ).setName("Gilding"),
+    new MomentuumSkill<TargetEmpty>(
+        (player) => {
+            return !player.IsFlying ? {} : undefined;
+        },
+        (player) => {
+            player.UseCard(CardType.HANGED_MAN, addFlag(UseFlag.NO_ANIMATION, UseFlag.NO_ANNOUNCER_VOICE));
+        },
+        () => 2
+    ).setName("Fly"),
 ]
 
 // #region Resources and data
@@ -371,8 +404,10 @@ const v = {
         // index of all MomentuumSkills, not currently available
         MomentuumSkillChoice: new DefaultMap<PlayerIndex, int>(-1),
         MomentuumInvincibility: new DefaultMap<PlayerIndex, int>(0),
-        MomentuumConsumedStats: new DefaultMap<PlayerIndex, DefaultMap<CacheFlag, int>>(() => new DefaultMap(0, [...MomentummConsumedStatsValues.keys()].map(cf => [cf, 0]))),
-        MomentuumDeeperUses: new DefaultMap<PlayerIndex, int>(0)
+        MomentuumConsumedStats: new DefaultMap<PlayerIndex, DefaultMap<CacheFlag, int>>(() => new DefaultMap(0, [...MomentummConsumedStatsValues.keys()].map(cf => [cf, 0])))
+    },
+    level: {
+        MomentuumFixateUsed: false
     }
 }
 export const MomentuumData = v;
@@ -393,7 +428,7 @@ export class Momentuum extends ModFeature {
         timeSpentInRoom = 0;
     }
 
-    @Callback(ModCallback.POST_USE_ITEM)
+    @Callback(ModCallback.POST_USE_ITEM, ModEnums.COLLECTIBLE_MOMENTUUM)
     MomentuumUse(item: CollectibleType, rng: RNG, player: EntityPlayer, useFlags: BitFlags<UseFlag>, activeSlot: int): any {
         if (hasFlag(useFlags, UseFlag.CAR_BATTERY)) return;
         if (!isPlayerAbleToAim(player) && !mapHasPlayer(Holding, player)) {
@@ -407,7 +442,7 @@ export class Momentuum extends ModFeature {
             player.AnimateCollectible(item, PlayerItemAnimation.HIDE_ITEM, CollectibleAnimation.PLAYER_PICKUP)
             mapDeletePlayer(Holding, player);
         }
-        return {Discharge: false};
+        return;
     }
 
     @CallbackCustom(ModCallbackCustom.POST_PLAYER_UPDATE_REORDERED)
@@ -426,7 +461,8 @@ export class Momentuum extends ModFeature {
     RegainMomentuumCharges() {
         getPlayers().forEach(player => {
             if (!player.HasCollectible(ModEnums.COLLECTIBLE_MOMENTUUM)) return;
-            addMomentuumCharges(player, 6);
+            let charges = 6 + player.GetCollectibleNum(CollectibleType.NINE_VOLT);
+            addMomentuumCharges(player, charges);
         });
     }
 

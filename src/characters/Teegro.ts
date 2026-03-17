@@ -1,6 +1,6 @@
-import { addFlag, anyPlayerHasCollectible, Callback, CallbackCustom, DEFAULT_ITEM_POOL_TYPE, game, getAdjustedPrice, getCharacters, getEffects, getGoldenTrinketType, getPickups, getPlayersOfType, getRandomArrayElement, getRandomFromWeightedArray, getRandomInt, getRandomVector, getRoomDescriptorReadOnly, getRoomItemPoolType, hasFlag, inRoomType, iRange, isChest, itemConfig, K_COLORS, ModCallbackCustom, ModFeature, newRNG, onStage, repeat, sfxManager, spawnCollectibleFromPool, spawnEffect, spawnPickup, vectorEquals, type PickupIndex } from "isaacscript-common";
+import { anyPlayerHasCollectible, Callback, CallbackCustom, DEFAULT_ITEM_POOL_TYPE, game, getAdjustedPrice, getCharacters, getEffects, getGoldenTrinketType, getPickups, getPlayersOfType, getRandomArrayElement, getRandomFromWeightedArray, getRandomInt, getRandomVector, getRoomDescriptorReadOnly, getRoomItemPoolType, hasFlag, inRoomType, iRange, isChest, itemConfig, K_COLORS, ModCallbackCustom, ModFeature, newRNG, onStage, repeat, sfxManager, spawnCollectibleFromPool, spawnEffect, spawnPickup, vectorEquals, type PickupIndex } from "isaacscript-common";
 import { mod } from "../mod";
-import { BombSubType, CacheFlag, CardType, CoinSubType, CollectibleType, DamageFlag, EffectVariant, EntityCollisionClass, EntityType, GridRoom, HeartSubType, ItemConfigTag, ItemPoolType, KeySubType, LevelStage, ModCallback, PickupPrice, PickupVariant, RoomType, SoundEffect } from "isaac-typescript-definitions";
+import { BombSubType, CacheFlag, CardType, CoinSubType, CollectibleType, DamageFlag, EffectVariant, EntityCollisionClass, EntityType, GridRoom, HeartSubType, ItemConfigTag, KeySubType, LevelStage, ModCallback, PickupPrice, PickupVariant, RoomType, SoundEffect } from "isaac-typescript-definitions";
 import { ModEnums } from "../ModEnums";
 import { CallbackPostPlayerRenderAbove } from "../misc/AdditionalCallbacks";
 import { Utils } from "../misc/Utils";
@@ -21,16 +21,14 @@ const HunterKeyInfo = {
 }
 const HunterPrice = -100;
 
-function CollectHunterPickup(pickup: EntityPickup, player: EntityPlayer) {
+function CollectHunterPickup(this: void, pickup: EntityPickup, player: EntityPlayer) {
     if (pickup.Price !== undefined) {
         if (pickup.Price > 0) player.AddCoins(-pickup.Price);
-        // else if (pickup.Price == PickupPrice.SPIKES) player.TakeDamage(2, addFlag(DamageFlag.SPIKES, DamageFlag.NO_PENALTIES), EntityRef(pickup), 60);
-        else if (pickup.Price == PickupPrice.SPIKES) player.SetMinDamageCooldown(60);
     }
     v.run.keyShards += HunterKeyInfo[pickup.SubType]?.Value ?? 0;
     sfxManager.Play(SoundEffect.BONE_HEART);
 }
-function CollisionHunterPickup(pickup: EntityPickup, player: EntityPlayer) {
+function CollisionHunterPickup(this: void, pickup: EntityPickup, player: EntityPlayer) {
     if (!pickup.Price) return;
     if (pickup.Price > 0 && player.GetNumCoins() < pickup.Price || pickup.Price == PickupPrice.SPIKES && player.GetDamageCooldown() > 0) return true;
     return;
@@ -165,6 +163,7 @@ const v = {
         droppedKey: false
     }
 }
+export const TeegroData = v;
 
 const lockedEffects = new Map<PickupIndex, Array<EntityEffect>>();
 
@@ -190,7 +189,7 @@ function LockItemSprite(pickup: EntityPickup) {
         let price = spawnEffect(HunterPriceEffectVariant, 0, pickup.Position);
         price.SpriteOffset = Vector(0, 10);
         price.DepthOffset = 10;
-        price.GetSprite().SetFrame("Idle", math.floor(pickupInfo.cost / 4) - 1);
+        price.GetSprite().SetFrame("Full", math.floor(pickupInfo.cost / 4) - 1);
         lockedEffects.set(ind, [price]);
     }
 }
@@ -259,10 +258,10 @@ export class Teegro extends ModFeature {
         if (inRoomType(RoomType.ANGEL)) {
             spawnPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Full, room.FindFreePickupSpawnPosition(room.GetCenterPos()));
         } else if (inRoomType(RoomType.DEVIL)) {
-            let key = spawnPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Full, room.FindFreePickupSpawnPosition(center.add(Vector(-80, -20))));
+            let key = spawnPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Full, room.FindFreePickupSpawnPosition(center.add(Vector(-120, -40))));
             key.AutoUpdatePrice = false;
             key.Price = PickupPrice.SPIKES;
-            let chest = spawnPickup(ModEnums.PICKUP_HUNTER_CHEST, 0, room.FindFreePickupSpawnPosition(center.add(Vector(80, -20))));
+            let chest = spawnPickup(ModEnums.PICKUP_HUNTER_CHEST, 0, room.FindFreePickupSpawnPosition(center.add(Vector(120, -40))));
             chest.AutoUpdatePrice = false;
             chest.Price = PickupPrice.SPIKES;
         } else if ([GridRoom.BLACK_MARKET, GridRoom.SECRET_SHOP].includes(getRoomDescriptorReadOnly().SafeGridIndex)) {
@@ -305,7 +304,7 @@ export class Teegro extends ModFeature {
             } else if ([PickupPrice.ONE_HEART, PickupPrice.ONE_SOUL_HEART].includes(pickup.Price) || pickup.Price >= 15) {
                 cost = 8;
                 canTouch = false;
-            } else if (pickup.Price == HunterPrice || pickup.Price > 0) {
+            } else if ([-10, HunterPrice].includes(pickup.Price) || pickup.Price > 0) {
                 cost = 4;
                 canTouch = false;
             }
@@ -414,7 +413,7 @@ export class Teegro extends ModFeature {
         let player = collider.ToPlayer();
         if (!player) return;
         let sprite = pickup.GetSprite();
-        if (sprite.GetAnimation() != "Idle" || v.run.keyShards < 4) return;
+        if (sprite.GetAnimation() != "Idle" || v.run.keyShards < 4 || pickup.Price == PickupPrice.SPIKES && player.GetDamageCooldown() > 0) return;
         let ind = mod.getPickupIndex(pickup);
         let drop = v.level.hunterChestRewards.get(ind); if (!drop || drop.length == 0) return;
         v.run.keyShards -= 4;

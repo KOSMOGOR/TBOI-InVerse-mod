@@ -7,11 +7,11 @@
 	<card type="tarot" pickup="1" name="Momentuum: V - The Hierophant" description="" hud="momentuum_hierophant" announcer="378" announcerdelay="70" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: VI - The Lovers" description="I shall find my true love." hud="momentuum_lovers" announcer="380" announcerdelay="70" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: VII - The Chariot" description="" hud="momentuum_chariot" announcer="371" mimiccharge="12" />
-	<card type="tarot" pickup="1" name="Momentuum: VIII - Justice" description="" hud="momentuum_justice" announcer="349" mimiccharge="12" />
+	<card type="tarot" pickup="1" name="Momentuum: VIII - Justice" description="I shall be the ultimate judge of fate." hud="momentuum_justice" announcer="349" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: IX - The Hermit" description="I shall become back my money." hud="momentuum_hermit" announcer="377" announcerdelay="60" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: X - Wheel of Fortune" description="I shall win in any odds." hud="momentuum_wheel" announcer="391" announcerdelay="60" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: XI - Strength" description="I shall become the strongest" hud="momentuum_strength" announcer="365" mimiccharge="12" />
-	<card type="tarot" pickup="1" name="Momentuum: XII - The Hanged Man" description="" hud="momentuum_hanged" announcer="376" mimiccharge="12" />
+	<card type="tarot" pickup="1" name="Momentuum: XII - The Hanged Man" description="I shall ascend beyond boundaries." hud="momentuum_hanged" announcer="376" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: XIII - Death" description="I shall become Nihility, the end of all" hud="momentuum_death" announcer="337" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: XIV - Temperance" description="I would really like an apple right now." hud="momentuum_temperance" announcer="370" announcerdelay="60" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: XV - The Devil" description="" hud="momentuum_devil" announcer="372" announcerdelay="40" mimiccharge="12" />
