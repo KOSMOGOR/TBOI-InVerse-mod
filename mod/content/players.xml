@@ -5,14 +5,14 @@
             nameimage="PlayerName_Dream.png" portrait="PlayerPortrait_Dream.png"
             skinColor="0" birthright="Another one?">
     </player>
-	<player name="DreamB" skin="Character_DreamB.png" hp="0" armor="1"
+	<!-- <player name="DreamB" skin="Character_DreamB.png" hp="0" armor="1"
             nameimage="PlayerName_Dream.png" portrait="PlayerPortrait_DreamB.png"
             skinColor="2" birthright="Go do a crime" bSkinParent="Dream">
     </player>
 	<player name="DreamBBody" skin="Character_DreamBBody.png" hp="0" armor="1"
             nameimage="PlayerName_Dream.png" portrait="PlayerPortrait_DreamB.png"
             skinColor="2" birthright="Soul, i don't feel so good..." bSkinParent="Dream" hidden="true">
-    </player>
+    </player> -->
 	<player name="Teegro" skin="Character_Teegro.png" hp="4" broken="1"
             nameimage="PlayerName_Teegro.png" portrait="PlayerPortrait_Teegro.png"
             skinColor="0" birthright="Reward for the Good Boy">

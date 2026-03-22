@@ -1,5 +1,5 @@
 import { CollectibleType, ItemPoolType, ItemType, type TrinketType } from "isaac-typescript-definitions";
-import { defaultMapGetPlayer, game, getRandomArrayElement, getRandomInt, isRNG, itemConfig, mapSetPlayer, newRNG, type DefaultMap, type PlayerIndex } from "isaacscript-common";
+import { defaultMapGetPlayer, game, getPlayers, getRandomArrayElement, getRandomInt, isRNG, itemConfig, mapSetPlayer, newRNG, type DefaultMap, type PlayerIndex } from "isaacscript-common";
 
 export class Utils {
     static getItemFromPool(pools: ItemPoolType | ItemPoolType[], rngOrSeed: RNG | Seed, minimumQuality: int = 0): CollectibleType {
@@ -56,5 +56,15 @@ export class Utils {
         let screen = Isaac.WorldToScreen(world);
         if (game.GetRoom().IsMirrorWorld()) screen.X = Isaac.GetScreenWidth() - screen.X;
         return screen;
+    }
+
+    static getAllPlayersTrinketMultiplier(trinket: TrinketType): int {
+        let mult = 0;
+        getPlayers().forEach(player => mult += player.GetTrinketMultiplier(trinket));
+        return mult;
+    }
+
+    static EqualPtrHash(ent1: Entity, ent2: Entity) {
+        return GetPtrHash(ent1) == GetPtrHash(ent2);
     }
 }

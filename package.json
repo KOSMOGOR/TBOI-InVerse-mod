@@ -20,11 +20,11 @@
     "update": "isaacscript update"
   },
   "dependencies": {
-    "isaac-typescript-definitions": "43.0.5",
-    "isaacscript-common": "^87.9.5"
+    "isaac-typescript-definitions": "43.0.6",
+    "isaacscript-common": "^87.9.6"
   },
   "devDependencies": {
-    "complete-node": "16.3.1",
+    "complete-node": "16.4.0",
     "isaacscript": "6.0.2",
     "isaacscript-lint": "7.3.2",
     "typescript": "5.9.3",

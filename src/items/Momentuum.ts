@@ -1,5 +1,5 @@
 import { ActiveSlot, ButtonAction, CacheFlag, CardType, CollectibleAnimation, CollectibleType, DamageFlag, Direction, DoorSlot, DoorVariant, EffectVariant, EntityType, ItemType, LaserVariant, LevelCurse, LevelStage, ModCallback, PickupVariant, PlayerItemAnimation, RoomType, SoundEffect, TrinketType, UseFlag } from "isaac-typescript-definitions";
-import { addFlag, addPlayerStat, arrayEquals, Callback, CallbackCustom, checkFamiliar, clamp, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getGoldenTrinketType, getPlayers, getPlayerTrinkets, getPocketItems, getRandomArrayElementAndRemove, getRandomInt, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, gridCoordinatesToWorldPosition, hasFlag, inRange, isEmptyFlag, isEntity, isGoldenTrinketType, isPlayerAbleToAim, isSecretRoomType, isVector, itemConfig, K_COLORS, logDamageFlags, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PlayerIndex, PocketItemType, removeFlag, sfxManager, spawnEffect, spawnTrinket, VectorZero } from "isaacscript-common";
+import { addFlag, addPlayerStat, arrayEquals, Callback, CallbackCustom, checkFamiliar, clamp, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getGoldenTrinketType, getPlayers, getPlayerTrinkets, getPocketItems, getRandomArrayElementAndRemove, getRandomInt, getRoomGridIndex, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, gridCoordinatesToWorldPosition, hasFlag, inRange, isDoorSlotValidAtGridIndexForRedRoom, isEmptyFlag, isEntity, isGlitchedCollectible, isGoldenTrinketType, isPickup, isPlayerAbleToAim, isSecretRoomType, isVector, itemConfig, K_COLORS, logDamageFlags, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PlayerIndex, PocketItemType, removeFlag, sfxManager, spawnEffect, spawnTrinket, VectorZero } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { Utils } from "../misc/Utils";
 import { InnateItems } from "../misc/InnateItems";
@@ -7,7 +7,7 @@ import { CallbackPostPlayerRenderAbove } from "../misc/AdditionalCallbacks";
 
 // #region Consts
 
-const NeedHold = 60 * 1.5;
+const NeedHold = 60 * 1;
 const HoldingThreshold = 10;
 const MomentuumSkillsRadius = 80;
 const MomentuumSkillsRadiusSq = MomentuumSkillsRadius * MomentuumSkillsRadius;
@@ -20,7 +20,7 @@ const MomentummConsumedStatsValues = new Map<CacheFlag, float>([
     [CacheFlag.SPEED, 0.2],
     [CacheFlag.LUCK, 1]
 ]);
-const FamiliarCooldown = 21;
+const FamiliarCooldown = 22;
 const DirectionToAnim = {
     [Direction.NO_DIRECTION]: "Down",
     [Direction.UP]: "Up",
@@ -105,6 +105,7 @@ function canCardBecomeMomentuumCard(card: CardType) : boolean {
 type TargetEntity = Entity | undefined;
 type TargetGridEntity = GridEntity | undefined;
 type TargetDoorSlot = {doorSlot: DoorSlot, Position: Vector} | undefined;
+type TargetInt = int | undefined;
 type TargetEmpty = object | undefined;
 const MomentuumSkills: MomentuumSkill<any>[] = [
     // new MomentuumSkill<>(
@@ -177,9 +178,11 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
     new MomentuumSkill<TargetEntity>(
         (player) => {
             let collectibles = getEntities(EntityType.PICKUP, PickupVariant.COLLECTIBLE)
-                .filter(ent => player.Position.DistanceSquared(ent.Position) <= MomentuumSkillsRadiusSq && ent.SubType != CollectibleType.NULL && itemConfig.GetCollectible(ent.SubType)?.Type == ItemType.PASSIVE)
+                .map(ent => ent.ToPickup()).filter(pickup => pickup != undefined)
+                .filter(pickup => player.Position.DistanceSquared(pickup.Position) <= MomentuumSkillsRadiusSq && !isGlitchedCollectible(pickup) &&
+                    pickup.SubType != CollectibleType.NULL && itemConfig.GetCollectible(pickup.SubType)?.Type == ItemType.PASSIVE)
                 .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
-            return collectibles[0]?.ToPickup();
+            return collectibles[0];
         },
         (player, target) => {
             let pickup = target?.ToPickup(); if (!pickup) return;
@@ -189,6 +192,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
     ).setName("Copy"),
     new MomentuumSkill<TargetEntity | TargetEmpty>(
         (player) => {
+            if (defaultMapGetPlayer(v.run.MomentuumCharges, player) == getMaxMomentuumCharges(player)) return undefined;
             let collectibles = getEntities(EntityType.PICKUP, PickupVariant.COLLECTIBLE)
                 .filter(ent => player.Position.DistanceSquared(ent.Position) <= MomentuumSkillsRadiusSq && ent.SubType != CollectibleType.NULL && ent.ToPickup()?.Price == 0)
                 .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
@@ -197,8 +201,8 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
             return undefined;
         },
         (player, target) => {
-            if (isEntity(target)) {
-                let pickup = target?.ToPickup(); if (!pickup) return;
+            if (isPickup(target)) {
+                let pickup = target;
                 let charges = 0;
                 if (pickup.SubType == ModEnums.COLLECTIBLE_MOMENTUUM) charges = 12
                 else if ([CollectibleType.DATAMINER, CollectibleType.TMTRAINER].includes(pickup.SubType)) charges = getRandomInt(1, getMaxMomentuumCharges(player), pickup.DropSeed);
@@ -247,7 +251,9 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
         (player, target) => {
             let door = target?.ToDoor(); if (!door) return 0;
             // Mega Satan, Mother or Beast (photo door)
-            if (door.GetVariant() == DoorVariant.LOCKED_KEY_FAMILIAR || door.GetVariant() == DoorVariant.LOCKED_CRACKED && game.GetRoom().GetType() == RoomType.BOSS || door.TargetRoomType == RoomType.SECRET_EXIT && getStage() == LevelStage.DEPTHS_2) return 12;
+            if (door.GetVariant() == DoorVariant.LOCKED_KEY_FAMILIAR ||
+                door.GetVariant() == DoorVariant.LOCKED_CRACKED && game.GetRoom().GetType() == RoomType.BOSS ||
+                door.TargetRoomType == RoomType.SECRET_EXIT && getStage() == LevelStage.DEPTHS_2) return 24;
             // Boss challenge, cube room, bedroom or vault
             else if (door.TargetRoomType == RoomType.CHALLENGE && game.GetLevel().HasBossChallenge() || [DoorVariant.LOCKED_DOUBLE, DoorVariant.LOCKED_CRACKED].includes(door.GetVariant())) return 3;
             // Shop, treasure, library, planetarium or normal challenge
@@ -266,7 +272,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
                 let pos = gridCoordinatesToWorldPosition(...coords);
                 let door = room.GetDoor(doorSlot);
                 if (player.Position.DistanceSquared(pos) <= MomentuumSkillsRadiusSq) {
-                    let canBeRedRoom = door == undefined && room.IsDoorSlotAllowed(doorSlot);
+                    let canBeRedRoom = door == undefined && isDoorSlotValidAtGridIndexForRedRoom(doorSlot, getRoomGridIndex());
                     let closedSecretRoom = door != undefined && !door.IsOpen() && [RoomType.SECRET, RoomType.SUPER_SECRET].includes(door.TargetRoomType);
                     if (canBeRedRoom || closedSecretRoom) doorSlotCoords.push({doorSlot, Position: pos});
                 }
@@ -297,15 +303,6 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
         () => 4
     ).setName("Card"),
     new MomentuumSkill<TargetEmpty>(
-        () => {
-            return {};
-        },
-        (player) => {
-            game.GetRoom().MamaMegaExplosion(player.Position, player);
-        },
-        () => game.GetRoom().GetType() == RoomType.BOSS ? 8 : 4
-    ).setName("Mama\nMega"),
-    new MomentuumSkill<TargetEmpty>(
         (player) => {
             return getPocketItems(player).some(pid => pid.type == PocketItemType.PILL && !game.GetItemPool().IsPillIdentified(pid.subType)) ? {} : undefined;
         },
@@ -330,12 +327,12 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
     new MomentuumSkill<TargetEmpty>(
         () => {
             let curses = game.GetLevel().GetCurses();
-            return isEmptyFlag(removeFlag(curses, LevelCurse.GIANT)) ? undefined : {};
+            return isEmptyFlag(removeFlag(curses, LevelCurse.LABYRINTH)) ? undefined : {};
         },
         () => {
             let level = game.GetLevel();
             let curses = level.GetCurses();
-            level.RemoveCurses(removeFlag(curses, LevelCurse.GIANT));
+            level.RemoveCurses(removeFlag(curses, LevelCurse.LABYRINTH));
         },
         () => 3
     ).setName("Cleanse"),
@@ -354,13 +351,33 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
     ).setName("Gilding"),
     new MomentuumSkill<TargetEmpty>(
         (player) => {
-            return !player.IsFlying ? {} : undefined;
+            return !player.IsFlying() ? {} : undefined;
         },
         (player) => {
             player.UseCard(CardType.HANGED_MAN, addFlag(UseFlag.NO_ANIMATION, UseFlag.NO_ANNOUNCER_VOICE));
         },
         () => 2
     ).setName("Fly"),
+    new MomentuumSkill<TargetInt>(
+        (player) => {
+            let emptyHearts = player.GetMaxHearts() - player.GetHearts();
+            let charges = defaultMapGetPlayer(v.run.MomentuumCharges, player);
+            return emptyHearts != 0 ? math.min(emptyHearts, charges * 2) : undefined;
+        },
+        (player, target) => {
+            player.AddHearts(target ?? 0);
+        },
+        (player, target) => math.ceil(target ?? 0 / 2)
+    ).setName("Heal"),
+    new MomentuumSkill<TargetEmpty>(
+        () => {
+            return {};
+        },
+        (player) => {
+            game.GetRoom().MamaMegaExplosion(player.Position, player);
+        },
+        () => game.GetRoom().GetType() == RoomType.BOSS ? 8 : 4
+    ).setName("Mama\nMega"),
 ]
 
 // #region Resources and data
@@ -469,6 +486,9 @@ export class Momentuum extends ModFeature {
     @CallbackCustom(ModCallbackCustom.POST_PLAYER_UPDATE_REORDERED)
     UpdateAvailableMomentuumSkillsAndChoice(player: EntityPlayer) {
         if (player.HasCollectible(ModEnums.COLLECTIBLE_MOMENTUUM)) {
+            // Player holding - don't change skills
+            let hold = mapGetPlayer(Holding, player) ?? 0;
+            if (hold > HoldingThreshold) return;
             // Collect skills that can be used
             let newAvailableMomentuumSkills = [];
             for (let i = 0; i < MomentuumSkills.length; i++) {
@@ -554,6 +574,11 @@ export class Momentuum extends ModFeature {
     @Callback(ModCallback.POST_UPDATE)
     PostUpdate() {
         timeSpentInRoom += 1;
+    }
+
+    @CallbackCustom(ModCallbackCustom.POST_PLAYER_COLLECTIBLE_ADDED, CollectibleType.NINE_VOLT)
+    OnGetNineVolt(player: EntityPlayer) {
+        addMomentuumCharges(player, 12);
     }
 
     // #region Familiar
