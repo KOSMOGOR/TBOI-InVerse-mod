@@ -1,6 +1,6 @@
-import { anyPlayerHasCollectible, anyPlayerHasTrinket, Callback, CallbackCustom, DEFAULT_ITEM_POOL_TYPE, DefaultMap, defaultMapGetPlayer, game, getAdjustedPrice, getCharacters, getEffects, getGoldenTrinketType, getPickups, getPlayersOfType, getRandomArrayElement, getRandomFromWeightedArray, getRandomInt, getRandomVector, getRoomDescriptorReadOnly, getRoomItemPoolType, hasFlag, inRoomType, iRange, isChest, itemConfig, K_COLORS, ModCallbackCustom, ModFeature, newRNG, onStage, repeat, sfxManager, spawnCollectibleFromPool, spawnEffect, spawnPickup, vectorEquals, type PickupIndex, type PlayerIndex } from "isaacscript-common";
+import { anyPlayerHasCollectible, anyPlayerHasTrinket, Callback, CallbackCustom, copyColor, DEFAULT_ITEM_POOL_TYPE, DefaultMap, defaultMapGetPlayer, game, getAdjustedPrice, getCharacters, getEffects, getGoldenTrinketType, getPickups, getPlayersOfType, getRandomArrayElement, getRandomFromWeightedArray, getRandomInt, getRandomVector, getRoomDescriptorReadOnly, getRoomItemPoolType, hasCurse, hasFlag, inRoomType, iRange, isChest, itemConfig, K_COLORS, ModCallbackCustom, ModFeature, newRNG, onStage, repeat, sfxManager, spawnCollectibleFromPool, spawnEffect, spawnPickup, vectorEquals, VectorZero, type PickupIndex, type PlayerIndex } from "isaacscript-common";
 import { mod } from "../mod";
-import { BombSubType, CacheFlag, CardType, CoinSubType, CollectibleType, DamageFlag, EffectVariant, EntityCollisionClass, EntityType, GridRoom, HeartSubType, ItemConfigTag, KeySubType, LevelStage, ModCallback, PickupPrice, PickupVariant, RoomType, SoundEffect, TrinketType } from "isaac-typescript-definitions";
+import { BombSubType, CacheFlag, CardType, CoinSubType, CollectibleType, DamageFlag, EffectVariant, EntityCollisionClass, EntityFlag, EntityType, GridRoom, HeartSubType, ItemConfigTag, KeySubType, LevelCurse, LevelStage, ModCallback, PickupPrice, PickupVariant, RoomType, SoundEffect, TrinketType } from "isaac-typescript-definitions";
 import { ModEnums } from "../ModEnums";
 import { CallbackPostPlayerRenderAbove } from "../misc/AdditionalCallbacks";
 import { Utils } from "../misc/Utils";
@@ -44,7 +44,7 @@ class HunterChestReward {
     onlyItem: boolean;
     onlyOne: boolean;
 
-    constructor(getReward: (rng: RNG) => {reward: {Variant: PickupVariant, SubType: int}, fixate?: boolean},
+    constructor(getReward: (rng: RNG) => {reward: {Variant: PickupVariant, SubType: int, anm2?: string}, fixate?: boolean},
                 getChance: () => int, getCost: () => int, onlyItem: boolean = false, onlyOne: boolean = false) {
         this._getReward = getReward;
         this.getChance = getChance;
@@ -53,7 +53,7 @@ class HunterChestReward {
         this.onlyOne = onlyOne;
     }
 
-    getReward(rng: RNG, needOnlyItem: boolean): {reward: {Variant: PickupVariant, SubType: int}, fixate?: boolean} | undefined {
+    getReward(rng: RNG, needOnlyItem: boolean): {reward: {Variant: PickupVariant, SubType: int, anm2?: string}, fixate?: boolean} | undefined {
         if (needOnlyItem && !this.onlyItem) return undefined;
         let res = getRandomInt(1, 100, rng);
         if (res <= this.getChance()) return this._getReward(rng);
@@ -71,7 +71,7 @@ const HunterChestRewards: HunterChestReward[] = [
         true
     ),
     new HunterChestReward(
-        () => { return {reward: {Variant: ModEnums.PICKUP_HUNTER_KEY_VARIANT, SubType: ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Shard}}; },
+        () => { return {reward: {Variant: ModEnums.PICKUP_HUNTER_KEY_VARIANT, SubType: ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Shard, anm2: "items/pickups/Pickup_HunterKey_Half"}}; },
         () => {
             let count = Utils.getAllPlayersTrinketMultiplier(TrinketType.RUSTED_KEY);
             let chance = 40 + (count >= 1 ? 10 : 0) + (count >= 2 ? 5 : 0);
@@ -97,15 +97,16 @@ const HunterChestRewards: HunterChestReward[] = [
     ),
     new HunterChestReward(
         rng => {
-            let coins: [number, float][] = [[CoinSubType.NICKEL, 49], [CoinSubType.DIME, 10], [CoinSubType.LUCKY_PENNY, 10], [CoinSubType.STICKY_NICKEL, 9], [CoinSubType.GOLDEN, 5]];
+            let coins: [[number, string], float][] = [[[CoinSubType.NICKEL, "005.022_nickel"], 49], [[CoinSubType.DIME, "005.023_dime"], 10],
+                [[CoinSubType.LUCKY_PENNY, "005.026_lucky penny"], 10], [[CoinSubType.STICKY_NICKEL, "005.025_sticky nickel"], 9], [[CoinSubType.GOLDEN, "005.027_golden penny"], 5]];
             let coin = getRandomFromWeightedArray(coins, rng);
-            return {reward: {Variant: PickupVariant.COIN, SubType: coin}};
+            return {reward: {Variant: PickupVariant.COIN, SubType: coin[0], anm2: coin[1]}};
         },
         () => 10,
         () => 2 - (anyPlayerHasCollectible(CollectibleType.MOMS_KEY) ? 1 : 0)
     ),
     new HunterChestReward(
-        () => { return {reward: {Variant: PickupVariant.KEY, SubType: KeySubType.GOLDEN}}; },
+        () => { return {reward: {Variant: PickupVariant.KEY, SubType: KeySubType.GOLDEN, anm2: "005.032_golden key"}}; },
         () => {
             let count = Utils.getAllPlayersTrinketMultiplier(TrinketType.RUSTED_KEY);
             let chance = 30 + (count >= 1 ? 10 : 0);
@@ -119,7 +120,7 @@ const HunterChestRewards: HunterChestReward[] = [
         false, true
     ),
     new HunterChestReward(
-        () => { return {reward: {Variant: PickupVariant.BOMB, SubType: BombSubType.GOLDEN}}; },
+        () => { return {reward: {Variant: PickupVariant.BOMB, SubType: BombSubType.GOLDEN, anm2: "005.043_golden bomb"}}; },
         () => 30,
         () => 3 - (anyPlayerHasCollectible(CollectibleType.MOMS_KEY) ? 1 : 0),
         false, true
@@ -128,7 +129,7 @@ const HunterChestRewards: HunterChestReward[] = [
         rng => {
             let runes = [...iRange(CardType.RUNE_HAGALAZ, CardType.RUNE_BLACK), ...iRange(CardType.SOUL_OF_ISAAC, CardType.SOUL_OF_JACOB_AND_ESAU)];
             let rune = getRandomArrayElement(runes, rng);
-            return {reward: {Variant: PickupVariant.CARD, SubType: rune}};
+            return {reward: {Variant: PickupVariant.CARD, SubType: rune, anm2: "005.303_rune1"}};
         },
         () => 20,
         () => 4 - (anyPlayerHasCollectible(CollectibleType.MOMS_KEY) ? 1 : 0)
@@ -137,7 +138,7 @@ const HunterChestRewards: HunterChestReward[] = [
         rng => {
             let cards = iRange(CardType.REVERSE_FOOL, CardType.REVERSE_WORLD);
             let card = getRandomArrayElement(cards, rng);
-            return {reward: {Variant: PickupVariant.CARD, SubType: card}};
+            return {reward: {Variant: PickupVariant.CARD, SubType: card, anm2: "005.300.14_reverse tarot card"}};
         },
         () => 20,
         () => 4 - (anyPlayerHasCollectible(CollectibleType.MOMS_KEY) ? 1 : 0)
@@ -151,22 +152,23 @@ const HunterChestRewards: HunterChestReward[] = [
         () => 5 - (anyPlayerHasCollectible(CollectibleType.MOMS_KEY) ? 1 : 0)
     ),
     new HunterChestReward(
-        () => { return {reward: {Variant: PickupVariant.HEART, SubType: HeartSubType.SOUL}}; },
+        () => { return {reward: {Variant: PickupVariant.HEART, SubType: HeartSubType.SOUL, anm2: "005.013_heart (soul)"}}; },
         () => 20 + Utils.getAllPlayersTrinketMultiplier(TrinketType.MOMS_PEARL) * 10,
         () => 2 - (anyPlayerHasCollectible(CollectibleType.MOMS_KEY) ? 1 : 0)
     ),
     new HunterChestReward(
         rng => {
-            let pickups = [PickupVariant.HEART, PickupVariant.COIN, PickupVariant.KEY, PickupVariant.BOMB, PickupVariant.SACK, PickupVariant.PILL, PickupVariant.LIL_BATTERY, PickupVariant.CARD, PickupVariant.TRINKET];
+            let pickups: [PickupVariant, string?][] = [[PickupVariant.HEART, "005.011_heart"], [PickupVariant.COIN, "005.021_penny"], [PickupVariant.KEY, "005.031_key"], [PickupVariant.BOMB, "005.041_bomb"],
+                [PickupVariant.SACK, "005.069_grabbag"], [PickupVariant.PILL, "005.071_pill blue-blue"], [PickupVariant.LIL_BATTERY, "005.090_littlebattery"], [PickupVariant.CARD, "005.301_tarot card"], [PickupVariant.TRINKET]];
             let pickup = getRandomArrayElement(pickups, rng);
-            return {reward: {Variant: pickup, SubType: 0}};
+            return {reward: {Variant: pickup[0], SubType: 0, anm2: pickup[1]}};
         },
         () => 100,
         () => 1
     )
 ];
-function GenerateHunterChestReward(rng: RNG): {Variant: PickupVariant, SubType: int}[] {
-    let rewards: {Variant: PickupVariant, SubType: int}[] = [];
+function GenerateHunterChestReward(rng: RNG): {Variant: PickupVariant, SubType: int, anm2?: string}[] {
+    let rewards: {Variant: PickupVariant, SubType: int, anm2?: string}[] = [];
     let remainingRewardLevel = getRandomInt(6, 16, rng);
     let pickedOptions = new Set<int>();
     let needOnlyItem = onStage(LevelStage.DARK_ROOM_CHEST);
@@ -197,7 +199,7 @@ const v = {
         pickupsInfo: new Map<PickupIndex, {locked: boolean, canTouch: boolean, cost: int, wait: int, basePrice?: int}>(),
         // For turning pickups into hunter keys and other things
         checkedPickups: new Set<PickupIndex>(),
-        hunterChestRewards: new Map<PickupIndex, Array<{Variant: PickupVariant, SubType: int}>>(),
+        hunterChestRewards: new Map<PickupIndex, Array<{Variant: PickupVariant, SubType: int, anm2?: string}>>(),
         pickupsRemoveOnNewRoom: new Set<PickupIndex>()
     },
     room: {
@@ -215,6 +217,20 @@ const hunterKeysCountSprites = new DefaultMap<PlayerIndex, Sprite>(() => {
     sprite.Play("Partial", true);
     return sprite;
 });
+let guppysEyeSprite = Sprite();
+let guppysEyeSpriteColor = copyColor(guppysEyeSprite.Color); guppysEyeSpriteColor.A = 0.6;
+guppysEyeSprite.Color = guppysEyeSpriteColor;
+guppysEyeSprite.Scale = Vector(0.5, 0.5);
+let GuppyEyeOffsets = [
+	[Vector(0, 4)],
+	[Vector(8, 4), Vector(-8, 4)],
+	[Vector(0, 8), Vector(-12, 0), Vector(12, 0)],
+	[Vector(0, 12), Vector(-12, 6), Vector(12, 6), Vector(0, 0)],
+	[Vector(0, 16), Vector(-9, 9), Vector(9, 9), Vector(-6, 0), Vector(6, 0)],
+	[Vector(-6, 16), Vector(6, 16), Vector(-9, 8), Vector(9, 8), Vector(-6, 0), Vector(6, 0)],
+	[Vector(-6, 16), Vector(6, 16), Vector(-12, 8), Vector(0, 8), Vector(12, 8), Vector(-6, 0), Vector(6, 0)],
+	[Vector(0, 16), Vector(9, 14), Vector(-9, 14), Vector(12, 8), Vector(-12, 8), Vector(9, 2), Vector(-9, 2), Vector(0,0)]
+];
 
 function GetHunterPriceFromRegular(price: int) {
     if (price > 0) price = getAdjustedPrice(price);
@@ -356,9 +372,14 @@ export class Teegro extends ModFeature {
             });
             return;
         }
-        // Didn't check or price returned to normal - lock
+        // Item was forcefully made free - unlock
         let forceUpdate = false;
-        if (!pickupInfo || pickup.Price != HunterPrice) {
+        if (pickupInfo?.locked && pickupInfo.basePrice != 0 && pickup.Price == 0) {
+            pickupInfo.locked = false;
+            forceUpdate = true;
+        }
+        // Didn't check or price returned to normal - lock
+        else if (!pickupInfo || pickup.Price != HunterPrice && pickup.Price != 0) {
             if (itemConfig.GetCollectible(pickup.SubType)?.HasTags(ItemConfigTag.QUEST) || inRoomType(RoomType.BOSS) || pickup.Price == PickupPrice.YOUR_SOUL) return;
             let canTouch = pickup.Price == 0;
             let wait = canTouch ? 15 : 0;
@@ -371,16 +392,22 @@ export class Teegro extends ModFeature {
             forceUpdate = true;
         }
         // Evaluate cost first time or reevaluate if wrong
-        let itemConfigItem = itemConfig.GetCollectible(pickup.SubType);
-        let basePrice = (pickupInfo.basePrice ?? pickup.Price) > 0 ? (itemConfigItem?.ShopPrice ?? 15) : (itemConfigItem?.DevilPrice ?? PickupPrice.TWO_HEARTS);
-        let cost = GetHunterPriceFromRegular(basePrice);
-        if (pickupInfo.cost != cost) {
-            pickupInfo.cost = cost;
-            pickupInfo.basePrice = basePrice;
-            forceUpdate = true;
+        if (pickupInfo.locked) {
+            let itemConfigItem = itemConfig.GetCollectible(pickup.SubType);
+            let basePrice = 0;
+            let priceToCheck = pickupInfo.basePrice ?? pickup.Price;
+            if (priceToCheck > 0) basePrice = itemConfigItem?.ShopPrice ?? 15;
+            else if (priceToCheck < 0) basePrice = itemConfigItem?.DevilPrice ?? PickupPrice.TWO_HEARTS;
+            let cost = GetHunterPriceFromRegular(basePrice);
+            if (pickupInfo.cost != cost) {
+                pickupInfo.cost = cost;
+                pickupInfo.basePrice = basePrice;
+                forceUpdate = true;
+            }
         }
         if (forceUpdate) v.level.pickupsInfo.set(ind, pickupInfo);
         if (pickupInfo.locked && (forceUpdate || !lockedEffects.has(ind))) LockItemSprite(pickup);
+        else if (!pickupInfo.locked && forceUpdate) UnlockItemSprite(pickup);
     }
 
     @Callback(ModCallback.PRE_PICKUP_COLLISION)
@@ -511,6 +538,7 @@ export class Teegro extends ModFeature {
         } else {
             let pickup1 = spawnPickup(ModEnums.PICKUP_HUNTER_CHEST, 0, pickup.Position);
             pickup1.EntityCollisionClass = EntityCollisionClass.ALL;
+            pickup1.AddEntityFlags(EntityFlag.NO_QUERY);
             let sprite1 = pickup1.GetSprite();
             sprite1.Play("Open", true);
             drop.forEach(dropInfo => {
@@ -583,5 +611,34 @@ export class Teegro extends ModFeature {
         let sprite = defaultMapGetPlayer(hunterKeysCountSprites, player);
         sprite.SetFrame(shards % 4);
         sprite.Render(pos);
+    }
+
+    @Callback(ModCallback.POST_PICKUP_RENDER, ModEnums.PICKUP_HUNTER_CHEST)
+    GuppysEyeFunctionality(pickup: EntityPickup) {
+        if (!anyPlayerHasCollectible(CollectibleType.GUPPYS_EYE) || pickup.GetSprite().GetAnimation() != "Idle") return;
+        let ind = mod.getPickupIndex(pickup);
+        let drop = v.level.hunterChestRewards.get(ind);
+        if (!drop || drop.length == 0) return;
+        let count = math.min(drop.length, GuppyEyeOffsets.length) - 1;
+        let renderPosition = Utils.worldToMirrorScreen(pickup.Position);
+        drop.forEach((dropValue, i) => {
+            if (!GuppyEyeOffsets[count]) return;
+            let offset = Vector(0, -12);
+            if (dropValue.Variant == PickupVariant.COLLECTIBLE) {
+                guppysEyeSprite.Load("gfx/005.100_collectible.anm2", true)
+                if (hasCurse(LevelCurse.BLIND)) guppysEyeSprite.ReplaceSpritesheet(1, "gfx/items/collectibles/questionmark.png");
+                else guppysEyeSprite.ReplaceSpritesheet(1, itemConfig.GetCollectible(dropValue.SubType)?.GfxFileName ?? "");
+                offset = offset.add(Vector(0, 12));
+            } else if (dropValue.Variant == PickupVariant.TRINKET) {
+                guppysEyeSprite.Load("gfx/005.350_trinket.anm2", true)
+                guppysEyeSprite.ReplaceSpritesheet(1, itemConfig.GetTrinket(dropValue.SubType)?.GfxFileName ?? "");
+            } else {
+                guppysEyeSprite.Load(`gfx/${dropValue.anm2}.anm2`, true);
+                if (dropValue.Variant == PickupVariant.CARD) offset = offset.add(Vector(0, 4));
+            }
+            guppysEyeSprite.LoadGraphics();
+            guppysEyeSprite.SetFrame("Idle", 0);
+            guppysEyeSprite.Render(renderPosition.add(GuppyEyeOffsets[count][i] ?? VectorZero).add(offset));
+        });
     }
 }

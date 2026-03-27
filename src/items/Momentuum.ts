@@ -1,5 +1,5 @@
 import { ActiveSlot, ButtonAction, CacheFlag, CardType, CollectibleAnimation, CollectibleType, DamageFlag, Direction, DoorSlot, DoorVariant, EffectVariant, EntityType, ItemType, LaserVariant, LevelCurse, LevelStage, ModCallback, PickupVariant, PlayerItemAnimation, RoomType, SoundEffect, TrinketType, UseFlag } from "isaac-typescript-definitions";
-import { addFlag, addPlayerStat, arrayEquals, Callback, CallbackCustom, checkFamiliar, clamp, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getGoldenTrinketType, getPlayers, getPlayerTrinkets, getPocketItems, getRandomArrayElementAndRemove, getRandomInt, getRoomGridIndex, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, gridCoordinatesToWorldPosition, hasFlag, inRange, isDoorSlotValidAtGridIndexForRedRoom, isEmptyFlag, isEntity, isGlitchedCollectible, isGoldenTrinketType, isPickup, isPlayerAbleToAim, isSecretRoomType, isVector, itemConfig, K_COLORS, logDamageFlags, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PlayerIndex, PocketItemType, removeFlag, sfxManager, spawnEffect, spawnTrinket, VectorZero } from "isaacscript-common";
+import { addFlag, addPlayerStat, arrayEquals, Callback, CallbackCustom, checkFamiliar, clamp, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getGoldenTrinketType, getGridIndexDelta, getPickups, getPlayers, getPlayerTrinkets, getPocketItems, getRandomArrayElementAndRemove, getRandomInt, getRoomGridIndex, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, getSurroundingGridIndexes, gridCoordinatesToWorldPosition, hasFlag, inRange, isDoorSlotValidAtGridIndexForRedRoom, isEmptyFlag, isEntity, isGlitchedCollectible, isGoldenTrinketType, isPickup, isPlayerAbleToAim, isSecretRoomType, isVector, itemConfig, K_COLORS, logDamageFlags, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PlayerIndex, PocketItemType, removeFlag, sfxManager, spawnEffect, spawnTrinket, VectorZero } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { Utils } from "../misc/Utils";
 import { InnateItems } from "../misc/InnateItems";
@@ -132,6 +132,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
             let item = game.GetItemPool().GetCollectible(pool, true, game.GetRoom().GetAwardSeed());
             pickup.Morph(EntityType.PICKUP, PickupVariant.COLLECTIBLE, item, true);
             spawnEffect(EffectVariant.POOF_1, 0, pickup.Position);
+            sfxManager.Play(SoundEffect.D6_ROLL);
         },
         () => 4
     ).setName("Reroll"),
@@ -148,6 +149,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
             pickup.Morph(EntityType.PICKUP, PickupVariant.COLLECTIBLE, CollectibleType.SAD_ONION, true);
             player.RemoveCollectible(CollectibleType.TMTRAINER);
             spawnEffect(EffectVariant.POOF_1, 0, pickup.Position);
+            sfxManager.Play(SoundEffect.EDEN_GLITCH);
         },
         () => 3
     ).setName("Glitch"),
@@ -170,6 +172,12 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
             let momentuumStats = defaultMapGetPlayer(v.run.MomentuumConsumedStats, player);
             statsGained.forEach(stat => momentuumStats.set(stat, momentuumStats.getAndSetDefault(stat) + 1));
             mapSetPlayer(v.run.MomentuumConsumedStats, player, momentuumStats);
+            if (pickup.OptionsPickupIndex != 0) getPickups(PickupVariant.COLLECTIBLE).forEach(pickup2 => {
+                if (pickup2.OptionsPickupIndex == pickup.OptionsPickupIndex && !Utils.EqualPtrHash(pickup, pickup2)) {
+                    pickup2.Remove();
+                    spawnEffect(EffectVariant.POOF_1, 0, pickup2.Position);
+                }
+            });
             pickup.Remove();
             spawnEffect(EffectVariant.POOF_1, 0, pickup.Position);
         },
@@ -201,18 +209,25 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
             return undefined;
         },
         (player, target) => {
+            let charges = 0;
             if (isPickup(target)) {
                 let pickup = target;
-                let charges = 0;
                 if (pickup.SubType == ModEnums.COLLECTIBLE_MOMENTUUM) charges = 12
                 else if ([CollectibleType.DATAMINER, CollectibleType.TMTRAINER].includes(pickup.SubType)) charges = getRandomInt(1, getMaxMomentuumCharges(player), pickup.DropSeed);
                 else charges = 2 + (itemConfig.GetCollectible(pickup.SubType)?.Quality ?? 0) * 2;
-                addMomentuumCharges(player, charges);
                 pickup.Remove();
                 spawnEffect(EffectVariant.POOF_1, 0, pickup.Position);
             } else if (typeof target == "object" && player.HasCollectible(CollectibleType.SHARP_PLUG)) {
                 player.TakeDamage(2, addFlag(DamageFlag.RED_HEARTS, DamageFlag.ISSAC_HEART, DamageFlag.INVINCIBLE, DamageFlag.IV_BAG, DamageFlag.NO_MODIFIERS), EntityRef(player), 30);
-                addMomentuumCharges(player, 2);
+                charges = 2;
+            }
+            if (charges > 0) {
+                addMomentuumCharges(player, charges);
+                sfxManager.Play(SoundEffect.BATTERY_CHARGE);
+                let effect = spawnEffect(EffectVariant.BATTERY, 0, player.Position.add(Vector(0, -40)));
+                effect.SpriteScale = Vector(0.8, 0.8);
+                effect.GetSprite().PlaybackSpeed = 0.7;
+                effect.DepthOffset = 200;
             }
         },
         () => 0
@@ -264,6 +279,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
     ).setName("Open\ndoor"),
     new MomentuumSkill<TargetDoorSlot>(
         (player) => {
+            let level = game.GetLevel();
             let room = game.GetRoom();
             let roomShape = room.GetRoomShape();
             let doorSlotCoords = [];
@@ -271,8 +287,25 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
                 let coords = getRoomShapeDoorSlotCoordinates(roomShape, doorSlot); if (!coords) continue;
                 let pos = gridCoordinatesToWorldPosition(...coords);
                 let door = room.GetDoor(doorSlot);
+                let gridIndex = getRoomGridIndex()
                 if (player.Position.DistanceSquared(pos) <= MomentuumSkillsRadiusSq) {
-                    let canBeRedRoom = door == undefined && isDoorSlotValidAtGridIndexForRedRoom(doorSlot, getRoomGridIndex());
+                    let canBeRedRoom = door == undefined && isDoorSlotValidAtGridIndexForRedRoom(doorSlot, gridIndex);
+                    if (canBeRedRoom) {
+                        while (true) {
+                            let indexDelta = getGridIndexDelta(roomShape, doorSlot);
+                            if (!indexDelta) break;
+                            let potenrialRedRoomIndex = gridIndex + indexDelta;
+                            let surroungingIndexesDelta = [-13, -1, 1, 13];
+                            for (let ind of surroungingIndexesDelta) {
+                                let surrondRoom = level.GetRoomByIdx(potenrialRedRoomIndex + ind);
+                                if (surrondRoom.Data && surrondRoom.Data.Type == RoomType.BOSS) {
+                                    canBeRedRoom = false;
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                    }
                     let closedSecretRoom = door != undefined && !door.IsOpen() && [RoomType.SECRET, RoomType.SUPER_SECRET].includes(door.TargetRoomType);
                     if (canBeRedRoom || closedSecretRoom) doorSlotCoords.push({doorSlot, Position: pos});
                 }
@@ -285,7 +318,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
             let level = game.GetLevel();
             let door = game.GetRoom().GetDoor(target.doorSlot);
             if (door) door.SetLocked(false);
-            else level.MakeRedRoomDoor(level.GetCurrentRoomDesc().SafeGridIndex, target.doorSlot);
+            else level.MakeRedRoomDoor(getRoomGridIndex(), target.doorSlot);
         },
         () => 4
     ).setName("Open\nwall"),
@@ -366,8 +399,9 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
         },
         (player, target) => {
             player.AddHearts(target ?? 0);
+            sfxManager.Play(SoundEffect.VAMP_GULP);
         },
-        (player, target) => math.ceil(target ?? 0 / 2)
+        (player, target) => math.ceil((target ?? 0) / 2)
     ).setName("Heal"),
     new MomentuumSkill<TargetEmpty>(
         () => {
@@ -638,7 +672,7 @@ export class Momentuum extends ModFeature {
     // #region Render UI
 
     @CallbackPostPlayerRenderAbove()
-    Test(player: EntityPlayer) {
+    RenderMomentuumUI(player: EntityPlayer) {
         if (!player.HasCollectible(ModEnums.COLLECTIBLE_MOMENTUUM) || !player.IsVisible()) return;
         if (game.GetHUD().IsVisible()) {
             this.RenderMomentuuumCharges(player);
@@ -699,7 +733,7 @@ export class Momentuum extends ModFeature {
         let target, targetMap = MomentuumSkills[defaultMapGetPlayer(v.run.MomentuumSkillChoice, player)]?.target;
         if (targetMap) target = mapGetPlayer(targetMap, player);
         if (!target) return;
-        if (isVector(target.Position)) {
+        if (!["number"].includes(typeof target) && isVector(target.Position)) {
             let pos = Utils.worldToMirrorScreen(target.Position).add(Vector(-20, -40));
             font.DrawString("V", pos.X, pos.Y, K_COLORS.White, 40, true);
         }

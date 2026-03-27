@@ -2,14 +2,14 @@ import { CollectibleType, EntityCollisionClass, EntityFlag, FamiliarVariant, Sou
 import { CallbackCustom, DefaultMap, defaultMapGetPlayer, getFamiliars, getPlayers, itemConfig, mapHasPlayer, ModCallbackCustom, ModFeature, repeat, sfxManager, type PlayerIndex } from "isaacscript-common";
 import { Utils } from "./Utils";
 
-function HideWisp(wisp: EntityFamiliar) {
+function HideWisp(wisp: EntityFamiliar, removeCostume: boolean = true) {
     let itemConfigItem = itemConfig.GetCollectible(wisp.SubType); if (!itemConfigItem) return;
     wisp.RemoveFromOrbit();
     wisp.ClearEntityFlags(EntityFlag.APPEAR);
     wisp.Visible = false;
     wisp.CollisionDamage = 0;
     wisp.EntityCollisionClass = EntityCollisionClass.NONE;
-    wisp.Player.RemoveCostume(itemConfigItem);
+    if (removeCostume) wisp.Player.RemoveCostume(itemConfigItem);
 }
 
 const v = {
@@ -41,10 +41,10 @@ export class InnateItems extends ModFeature {
         });
     }
 
-    static AddItem(player: EntityPlayer, item: CollectibleType) {
+    static AddItem(player: EntityPlayer, item: CollectibleType, removeCostume: boolean = true) {
         let itemConfigItem = itemConfig.GetCollectible(item); if (!itemConfigItem) return;
         let itemWisp = player.AddItemWisp(item, player.Position);
-        HideWisp(itemWisp);
+        HideWisp(itemWisp, removeCostume);
         let playerInnateItems = defaultMapGetPlayer(v.run.Items, player);
         Utils.defaultMapSetPred(playerInnateItems, item, n => n + 1);
     }
@@ -69,9 +69,9 @@ export class InnateItems extends ModFeature {
         }
     }
 
-    static AddItemForRoom(player: EntityPlayer, item: CollectibleType) {
+    static AddItemForRoom(player: EntityPlayer, item: CollectibleType, removeCostume: boolean = true) {
         let itemConfigItem = itemConfig.GetCollectible(item); if (!itemConfigItem) return;
-        this.AddItem(player, item)
+        this.AddItem(player, item, removeCostume);
         let playerInnateRoomItems = defaultMapGetPlayer(v.run.RoomItems, player);
         Utils.defaultMapSetPred(playerInnateRoomItems, item, n => n + 1);
     }
@@ -95,9 +95,9 @@ export class InnateItems extends ModFeature {
         });
     }
 
-    static AddItemForLevel(player: EntityPlayer, item: CollectibleType) {
+    static AddItemForLevel(player: EntityPlayer, item: CollectibleType, removeCostume: boolean = true) {
         let itemConfigItem = itemConfig.GetCollectible(item); if (!itemConfigItem) return;
-        this.AddItem(player, item)
+        this.AddItem(player, item, removeCostume)
         let playerInnateLevelItems = defaultMapGetPlayer(v.run.LevelItems, player);
         Utils.defaultMapSetPred(playerInnateLevelItems, item, n => n + 1);
     }

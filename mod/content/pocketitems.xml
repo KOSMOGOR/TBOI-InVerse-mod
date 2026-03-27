@@ -6,7 +6,7 @@
 	<card type="tarot" pickup="1" name="Momentuum: IV - The Emperor" description="" hud="momentuum_emperor" greedmode="false" announcer="373" announcerdelay="70" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: V - The Hierophant" description="" hud="momentuum_hierophant" announcer="378" announcerdelay="70" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: VI - The Lovers" description="I shall find my true love." hud="momentuum_lovers" announcer="380" announcerdelay="70" mimiccharge="12" />
-	<card type="tarot" pickup="1" name="Momentuum: VII - The Chariot" description="" hud="momentuum_chariot" announcer="371" mimiccharge="12" />
+	<card type="tarot" pickup="1" name="Momentuum: VII - The Chariot" description="I shall ram all my obstacles." hud="momentuum_chariot" announcer="371" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: VIII - Justice" description="I shall be the ultimate judge of fate." hud="momentuum_justice" announcer="349" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: IX - The Hermit" description="I shall become back my money." hud="momentuum_hermit" announcer="377" announcerdelay="60" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: X - Wheel of Fortune" description="I shall win in any odds." hud="momentuum_wheel" announcer="391" announcerdelay="60" mimiccharge="12" />

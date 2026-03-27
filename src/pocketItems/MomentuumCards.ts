@@ -1,9 +1,10 @@
-import { CacheFlag, CardType, CollectibleType, EntityFlag, EntityType, ModCallback, UseFlag, PlayerItemAnimation, SoundEffect, GridRoom, PickupVariant, RoomType, DisplayFlag, RoomDescriptorFlag, GeminiVariant, BeastVariant, DingleVariant, GurglingVariant, ItemPoolType, TrinketType, GridEntityType, PoopGridEntityVariant, PlayerType, DamageFlagZero, FireplaceVariant, PickupPrice, BombSubType } from "isaac-typescript-definitions";
-import { addFlag, anyPlayerHasCollectible, bitFlags, Callback, CallbackCustom, COLORS, DefaultMap, defaultMapGetPlayer, game, getEntities, getGridEntities, getPlayers, getRandomArrayElement, getRandomInt, getRoomData, getRoomDescriptorReadOnly, getRoomGridIndex, getRooms, getUnusedDoorSlots, hasFlag, inRoomType, isRoomType, itemConfig, mapDeletePlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, repeat, sfxManager, smeltTrinket, spawn, spawnCollectible, spawnCollectibleFromPool, spawnNPC, spawnPickup, teleport, type PlayerIndex } from "isaacscript-common";
+import { CacheFlag, CardType, CollectibleType, EntityFlag, EntityType, ModCallback, UseFlag, PlayerItemAnimation, SoundEffect, GridRoom, PickupVariant, RoomType, DisplayFlag, RoomDescriptorFlag, GeminiVariant, BeastVariant, DingleVariant, GurglingVariant, ItemPoolType, TrinketType, GridEntityType, PoopGridEntityVariant, PlayerType, PickupPrice, BombSubType, LevelStage, StageTransitionType, DarkEsauSubType, PillEffect, type DamageFlag } from "isaac-typescript-definitions";
+import { addFlag, anyPlayerHasCollectible, bitFlags, Callback, CallbackCustom, COLORS, DefaultMap, defaultMapGetPlayer, game, getEntities, getEntityFromPtrHash, getHorsePillColor, getPillColorFromEffect, getPlayerIndex, getPlayers, getRandomArrayElement, getRandomInt, getRoomDescriptorReadOnly, getRoomGridIndex, getRooms, getStage, getStageType, getUnusedDoorSlots, hasFlag, inRoomType, itemConfig, mapDeletePlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, repeat, sfxManager, smeltTrinket, spawn, spawnCollectible, spawnCollectibleFromPool, spawnNPC, spawnPickup, teleport, type PlayerIndex } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { Utils } from "../misc/Utils";
 import { InnateItems } from "../misc/InnateItems";
 import { TeegroData } from "../characters/Teegro";
+import { mod } from "../mod";
 
 const v = {
     run: {
@@ -15,7 +16,8 @@ const v = {
         Hermit: false,
         WheelOfFortune: new DefaultMap<PlayerIndex, {remainingUses: int, passedSinceLastUse: int}>(() => { return {remainingUses: 0, passedSinceLastUse: 0}; }),
         Devil: false,
-        Moon: false
+        Moon: false,
+        Sun: new Set<PtrHash>()
     },
     level: {
         Chariot: new Map<PlayerIndex, boolean>(),
@@ -32,9 +34,11 @@ function MomentuumPriestess() {
     v.run.Priestess = false;
     if (inRoomType(RoomType.ANGEL)) {
         let room = game.GetRoom();
+        let centerPos = room.GetCenterPos();
         let times = anyPlayerHasCollectible(CollectibleType.TAROT_CLOTH) ? 2 : 1
         repeat(times, () => {
-            spawnCollectibleFromPool(ItemPoolType.ANGEL, room.FindFreePickupSpawnPosition(room.GetRandomPosition(10)), Isaac.GetPlayer().GetCardRNG(ModEnums.CARD_MOMENTUUM_PRIESTESS))
+            let pos = room.GetRandomPosition(10);
+            spawnCollectibleFromPool(ItemPoolType.ANGEL, room.FindFreePickupSpawnPosition(pos.add(centerPos.sub(pos).Resized(60))), Isaac.GetPlayer().GetCardRNG(ModEnums.CARD_MOMENTUUM_PRIESTESS));
         });
     }
 }
@@ -42,13 +46,22 @@ function MomentuumDevil() {
     v.run.Devil = false;
     if (inRoomType(RoomType.DEVIL)) {
         let room = game.GetRoom();
+        let centerPos = room.GetCenterPos();
         let times = anyPlayerHasCollectible(CollectibleType.TAROT_CLOTH) ? 4 : 2
         repeat(times, () => {
-            let entityPickup = spawnCollectibleFromPool(ItemPoolType.DEVIL, room.FindFreePickupSpawnPosition(room.GetRandomPosition(10)), Isaac.GetPlayer().GetCardRNG(ModEnums.CARD_MOMENTUUM_PRIESTESS))
+            let pos = room.GetRandomPosition(10);
+            let entityPickup = spawnCollectibleFromPool(ItemPoolType.DEVIL, room.FindFreePickupSpawnPosition(pos.add(centerPos.sub(pos).Resized(60))), Isaac.GetPlayer().GetCardRNG(ModEnums.CARD_MOMENTUUM_PRIESTESS))
             entityPickup.ShopItemId = -2;
             entityPickup.Price = itemConfig.GetCollectible(entityPickup.SubType)?.DevilPrice ?? PickupPrice.TWO_HEARTS;
             entityPickup.AutoUpdatePrice = true;
         });
+    }
+}
+function MomentuumWorld() {
+    if (!inRoomType(RoomType.ERROR, RoomType.DEVIL, RoomType.ANGEL, RoomType.DUNGEON, RoomType.BOSS_RUSH, RoomType.GREED_EXIT, RoomType.ULTRA_SECRET) && !hasFlag(getRoomDescriptorReadOnly().Flags, RoomDescriptorFlag.RED_ROOM)) {
+        let level = game.GetLevel();
+        let gridIndex = level.GetCurrentRoomDesc().SafeGridIndex;
+        for (const doorSlot of getUnusedDoorSlots()) level.MakeRedRoomDoor(gridIndex, doorSlot);
     }
 }
 
@@ -79,7 +92,8 @@ export class MomentuumCards extends ModFeature {
                 v.run.Fool = true;
                 break
             case ModEnums.CARD_MOMENTUUM_MAGICIAN:
-                for (let i = 0; i < 10; i++) {
+                let wispCount = hasTarotCloth ? 16 : 8;
+                for (let i = 0; i < wispCount; i++) {
                     if (getRandomInt(1, 10, rng) == 1) player.UseActiveItem(CollectibleType.LEMEGETON, UseFlag.NO_ANIMATION);
                     else player.AddWisp(getRandomArrayElement(ActiveItems, rng), player.Position);
                 }
@@ -99,7 +113,9 @@ export class MomentuumCards extends ModFeature {
                 player.AddMaxHearts(-hearts, true);
                 player.AddBrokenHearts(hearts / 2);
                 if (player.GetBoneHearts() + player.GetSoulHearts() == 0) player.AddBlackHearts(2);
-                Utils.defaultMapSetPlayerPred(v.run.Empress, player, n => n + hearts);
+                Utils.defaultMapSetPlayerPred(v.run.Empress, player, n => n + hearts + (hasTarotCloth ? 1 : 0));
+                player.AddCacheFlags(CacheFlag.DAMAGE);
+                player.EvaluateItems();
                 break;
             case ModEnums.CARD_MOMENTUUM_EMPEROR:
                 const possibleBosses = [[EntityType.DINGLE], [EntityType.DINGLE, DingleVariant.DANGLE], [EntityType.DUKE_OF_FLIES], [EntityType.GEMINI], [EntityType.GEMINI, GeminiVariant.STEVEN],
@@ -111,7 +127,7 @@ export class MomentuumCards extends ModFeature {
                 let bossVariant = boss[1] ?? 0;
                 for (let bossType of bossTypes) {
                     let boss = spawnNPC(bossType as EntityType, bossVariant, 0, player.Position);
-                    boss.HitPoints = 48 + (hasTarotCloth ? 24 : 0);
+                    boss.HitPoints = 14 + (hasTarotCloth ? 7 : 0);
                     boss.AddEntityFlags(addFlag(EntityFlag.CHARM, EntityFlag.FRIENDLY, EntityFlag.PERSISTENT));
                     if (hasTarotCloth) boss.MakeChampion(boss.InitSeed);
                 }
@@ -119,16 +135,19 @@ export class MomentuumCards extends ModFeature {
                 break;
             case ModEnums.CARD_MOMENTUUM_HIEROPHANT: break;
             case ModEnums.CARD_MOMENTUUM_LOVERS:
-                getEntities().forEach(entity => {
-                    if (entity.IsVulnerableEnemy() && !entity.IsBoss()) {
-                        entity.AddEntityFlags(addFlag(EntityFlag.CHARM, EntityFlag.FRIENDLY, EntityFlag.PERSISTENT));
-                        if (hasTarotCloth && getRandomInt(1, 2, rng) == 1) entity.ToNPC()?.MakeChampion(entity.InitSeed);
-                    }
-                });
+                let pheromonesPillColor = getPillColorFromEffect(PillEffect.PHEROMONES);
+                player.UsePill(PillEffect.PHEROMONES, getHorsePillColor(pheromonesPillColor));
+                if (hasTarotCloth) {
+                    getEntities().forEach(entity => {
+                        if (entity.IsVulnerableEnemy() && !entity.IsBoss() && entity.HasEntityFlags(EntityFlag.CHARM) && getRandomInt(1, 2, rng) == 1)
+                            entity.ToNPC()?.MakeChampion(entity.InitSeed);
+                    });
+                }
                 break;
             case ModEnums.CARD_MOMENTUUM_CHARIOT:
                 mapSetPlayer(v.level.Chariot, player, true);
-                player.UseActiveItem(CollectibleType.DARK_ARTS, UseFlag.NO_ANIMATION);
+                InnateItems.AddItemForLevel(player, hasTarotCloth ? CollectibleType.WHITE_PONY : CollectibleType.PONY, false);
+                player.UseActiveItem(CollectibleType.PONY);
                 break;
             case ModEnums.CARD_MOMENTUUM_JUSTICE:
                 let mult = hasTarotCloth ? 2 : 1;
@@ -152,7 +171,23 @@ export class MomentuumCards extends ModFeature {
                 player.UseActiveItem(CollectibleType.MEGA_MUSH);
                 if (hasTarotCloth) player.UseActiveItem(CollectibleType.MEGA_MUSH);
                 break;
-            case ModEnums.CARD_MOMENTUUM_HANGED: break;
+            case ModEnums.CARD_MOMENTUUM_HANGED:
+                let currentStage = getStage();
+                if (currentStage == LevelStage.VOID) player.UseActiveItem(CollectibleType.FORGET_ME_NOW);
+                else if (game.IsGreedMode() && currentStage == LevelStage.BASEMENT_GREED_MODE) teleport(GridRoom.ANGEL_SHOP);
+                else {
+                    let currentStageType = getStageType();
+                    print(currentStage, currentStageType)
+                    let stageDelta = hasTarotCloth ? 2 : 1;
+                    if (game.IsGreedMode() && currentStage == LevelStage.CAVES_GREED_MODE || currentStage == LevelStage.SHEOL_CATHEDRAL && currentStageType == 1) stageDelta = 1;
+                    else if (currentStage == LevelStage.SHEOL_CATHEDRAL && currentStageType == 0) stageDelta = -1;
+                    let newStage = currentStage - stageDelta;
+                    if (newStage < 1) newStage = LevelStage.HOME;
+                    // game.GetLevel().SetStage(newStage, StageType.ORIGINAL);
+                    Isaac.ExecuteCommand("stage " + newStage);
+                    game.StartStageTransition(true, StageTransitionType.NONE, Isaac.GetPlayer());
+                }
+                break;
             case ModEnums.CARD_MOMENTUUM_DEATH:
                 entity = spawnNPC(EntityType.BEAST, BeastVariant.ULTRA_DEATH, 0, game.GetRoom().GetCenterPos());
                 entity.AddEntityFlags(addFlag(EntityFlag.CHARM, EntityFlag.FRIENDLY));
@@ -170,7 +205,8 @@ export class MomentuumCards extends ModFeature {
                 break;
             case ModEnums.CARD_MOMENTUUM_DEVIL:
                 v.run.Devil = true;
-                if (getRoomGridIndex() == GridRoom.DEVIL) game.GetLevel().InitializeDevilAngelRoom(false, true);
+                game.GetLevel().InitializeDevilAngelRoom(false, true);
+                if (getRoomGridIndex() == GridRoom.DEVIL) MomentuumDevil();
                 else teleport(GridRoom.DEVIL);
                 break;
             case ModEnums.CARD_MOMENTUUM_TOWER:
@@ -180,29 +216,26 @@ export class MomentuumCards extends ModFeature {
                 });
                 break;
             case ModEnums.CARD_MOMENTUUM_STARS:
-                v.room.Stars = true;
-                getEntities().forEach(entity => {
-                    if (entity.IsVulnerableEnemy() && !entity.IsBoss()) {
-                        entity.AddEntityFlags(EntityFlag.ICE);
-                        entity.TakeDamage(entity.HitPoints, DamageFlagZero, EntityRef(undefined), 0);
-                    }
-                    if (entity.Type == EntityType.FIREPLACE && [FireplaceVariant.NORMAL, FireplaceVariant.RED].includes(entity.Variant)) {
-                        entity.Remove();
-                        spawn(EntityType.FIREPLACE, FireplaceVariant.BLUE, 0, entity.Position);
-                    }
-                });
-                getGridEntities(GridEntityType.ROCK).forEach(gridEnity => {
-                    if (getRandomInt(1, 20, rng) == 1) {
-                        gridEnity.SetType(GridEntityType.ROCK_TINTED);
-                        gridEnity.Init(gridEnity.GetSaveState().SpawnSeed);
-                    }
-                });
+                InnateItems.AddItem(player, CollectibleType.SACRED_ORB);
+                player.UseActiveItem(CollectibleType.D6, UseFlag.NO_ANIMATION);
+                player.UseCard(CardType.SOUL_OF_ISAAC, addFlag(UseFlag.NO_ANIMATION, UseFlag.NO_ANNOUNCER_VOICE));
+                if (hasTarotCloth) player.UseCard(CardType.SOUL_OF_ISAAC, addFlag(UseFlag.NO_ANIMATION, UseFlag.NO_ANNOUNCER_VOICE));
+                InnateItems.RemoveItem(player, CollectibleType.SACRED_ORB);
                 break;
             case ModEnums.CARD_MOMENTUUM_MOON:
                 v.run.Moon = true;
                 teleport(GridRoom.ERROR);
                 break;
-            case ModEnums.CARD_MOMENTUUM_SUN: break;
+            case ModEnums.CARD_MOMENTUUM_SUN:
+                let esau = spawn(EntityType.DARK_ESAU, 0, DarkEsauSubType.DARK, room.GetRandomPosition(0));
+                esau.Update();
+                v.run.Sun.add(GetPtrHash(esau));
+                if (hasTarotCloth) {
+                    let esau2 = spawn(EntityType.DARK_ESAU, 0, DarkEsauSubType.DARKER, room.GetRandomPosition(0));
+                    esau2.Update();
+                    v.run.Sun.add(GetPtrHash(esau2));
+                }
+                break;
             case ModEnums.CARD_MOMENTUUM_JUDGEMENT:
                 player.UseActiveItem(CollectibleType.DAMOCLES);
                 if (hasTarotCloth) smeltTrinket(player, TrinketType.WOODEN_CROSS);
@@ -216,6 +249,7 @@ export class MomentuumCards extends ModFeature {
                     if (room.Data?.Type == RoomType.ULTRA_SECRET) room.DisplayFlags = bitFlags(DisplayFlag.SHOW_ICON);
                 });
                 game.GetLevel().UpdateVisibility();
+                MomentuumWorld();
                 break;
         }
     }
@@ -224,9 +258,11 @@ export class MomentuumCards extends ModFeature {
     CardsPlayerUpdate(player: EntityPlayer) {
         if (mapHasPlayer(v.run.WheelOfFortune, player)) {
             let wheelData = defaultMapGetPlayer(v.run.WheelOfFortune, player);
-            if (wheelData.remainingUses > 1) {
+            if (wheelData.remainingUses > 0) {
                 if (wheelData.passedSinceLastUse >= 30) {
                     player.UseActiveItem(CollectibleType.METRONOME);
+                    sfxManager.Stop(SoundEffect.ITEM_RAISE);
+                    sfxManager.Play(SoundEffect.PORTABLE_SLOT_WIN);
                     wheelData.passedSinceLastUse = 0;
                     wheelData.remainingUses--;
                 } else wheelData.passedSinceLastUse++;
@@ -243,7 +279,7 @@ export class MomentuumCards extends ModFeature {
         }
         if (v.level.Chariot.size > 0) {
             getPlayers().forEach(player => {
-                if (mapHasPlayer(v.level.Chariot, player)) player.UseActiveItem(CollectibleType.DARK_ARTS);
+                if (mapHasPlayer(v.level.Chariot, player)) mod.runNextGameFrame(() => player.UseActiveItem(player.HasCollectible(CollectibleType.TAROT_CLOTH) ? CollectibleType.WHITE_PONY : CollectibleType.PONY));
             });
         }
         if (v.run.Devil) {
@@ -261,11 +297,7 @@ export class MomentuumCards extends ModFeature {
             }
         }
         if (v.level.World) {
-            if (!isRoomType(getRoomData(), RoomType.ERROR, RoomType.DEVIL, RoomType.ANGEL, RoomType.DUNGEON, RoomType.BOSS_RUSH, RoomType.GREED_EXIT, RoomType.ULTRA_SECRET) && !hasFlag(getRoomDescriptorReadOnly().Flags, RoomDescriptorFlag.RED_ROOM)) {
-                let level = game.GetLevel();
-                let gridIndex = level.GetCurrentRoomDesc().SafeGridIndex;
-                for (const doorSlot of getUnusedDoorSlots()) level.MakeRedRoomDoor(gridIndex, doorSlot);
-            }
+            MomentuumWorld();
         }
     }
 
@@ -279,6 +311,10 @@ export class MomentuumCards extends ModFeature {
             let player = Isaac.GetPlayer();
             player.AddCoins(anyPlayerHasCollectible(CollectibleType.TAROT_CLOTH) ? -50 : -player.GetNumCoins());
         }
+        if (v.run.Sun.size > 0) {
+            v.run.Sun.forEach(ptrHash => getEntityFromPtrHash(ptrHash)?.Remove());
+            v.run.Sun.clear();
+        }
     }
 
     @CallbackCustom(ModCallbackCustom.POST_ROOM_CLEAR_CHANGED, true)
@@ -290,11 +326,6 @@ export class MomentuumCards extends ModFeature {
                 for (const doorSlot of getUnusedDoorSlots()) level.MakeRedRoomDoor(gridIndex, doorSlot);
             }
         }
-    }
-
-    @Callback(ModCallback.POST_UPDATE)
-    PostUpdate() {
-
     }
 
     @CallbackCustom(ModCallbackCustom.POST_GRID_ENTITY_INIT)
@@ -343,5 +374,13 @@ export class MomentuumCards extends ModFeature {
             if (entity.Type == EntityType.FROZEN_ENEMY && getRandomInt(1, 5, Isaac.GetPlayer().GetCardRNG(ModEnums.CARD_MOMENTUUM_STARS)) == 1)
                 spawnPickup(PickupVariant.CARD, 0, entity.Position);
         }
+    }
+
+    @Callback(ModCallback.ENTITY_TAKE_DMG, EntityType.PLAYER)
+    CardsTakeDamage(entity: Entity, amount: float, damageFlags: BitFlags<DamageFlag>, source: EntityRef, countdownFrames: int): undefined | boolean {
+        let player = entity.ToPlayer(); if (!player) return;
+        if (!v.level.Chariot.has(getPlayerIndex(player))) return;
+        if (getRandomInt(1, 10, player.GetCardRNG(ModEnums.CARD_MOMENTUUM_CHARIOT)) <= 3) player.UseActiveItem(player.HasCollectible(CollectibleType.TAROT_CLOTH) ? CollectibleType.WHITE_PONY : CollectibleType.PONY);
+        return;
     }
 }
