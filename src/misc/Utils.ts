@@ -67,4 +67,10 @@ export class Utils {
     static EqualPtrHash(ent1: Entity, ent2: Entity) {
         return GetPtrHash(ent1) == GetPtrHash(ent2);
     }
+
+    static moveTowards(current: number, target: number, maxDelta: number): number {
+        if (Math.abs(target - current) <= maxDelta) return target;
+        if (current < target) return current + maxDelta;
+        else return current - maxDelta;
+    }
 }

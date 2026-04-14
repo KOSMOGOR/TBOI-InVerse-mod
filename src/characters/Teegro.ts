@@ -1,6 +1,6 @@
-import { anyPlayerHasCollectible, anyPlayerHasTrinket, Callback, CallbackCustom, copyColor, DEFAULT_ITEM_POOL_TYPE, DefaultMap, defaultMapGetPlayer, game, getAdjustedPrice, getCharacters, getEffects, getGoldenTrinketType, getPickups, getPlayersOfType, getRandomArrayElement, getRandomFromWeightedArray, getRandomInt, getRandomVector, getRoomDescriptorReadOnly, getRoomItemPoolType, hasCurse, hasFlag, inRoomType, iRange, isChest, itemConfig, K_COLORS, ModCallbackCustom, ModFeature, newRNG, onStage, repeat, sfxManager, spawnCollectibleFromPool, spawnEffect, spawnPickup, vectorEquals, VectorZero, type PickupIndex, type PlayerIndex } from "isaacscript-common";
+import { anyPlayerHasCollectible, anyPlayerHasTrinket, Callback, CallbackCustom, clamp, copyColor, copyKColor, DEFAULT_ITEM_POOL_TYPE, DefaultMap, defaultMapGetPlayer, game, getAdjustedPrice, getCharacters, getEffects, getGoldenTrinketType, getPickups, getPlayers, getPlayersOfType, getRandomArrayElement, getRandomFromWeightedArray, getRandomInt, getRandomVector, getRoomDescriptorReadOnly, getRoomItemPoolType, hasCurse, hasFlag, inRoomType, iRange, isActionPressedOnAnyInput, isChest, itemConfig, K_COLORS, lerp, ModCallbackCustom, ModFeature, newRNG, onStage, repeat, sfxManager, spawnCollectibleFromPool, spawnEffect, spawnPickup, vectorEquals, VectorZero, type PickupIndex, type PlayerIndex } from "isaacscript-common";
 import { mod } from "../mod";
-import { BombSubType, CacheFlag, CardType, CoinSubType, CollectibleType, DamageFlag, EffectVariant, EntityCollisionClass, EntityFlag, EntityType, GridRoom, HeartSubType, ItemConfigTag, KeySubType, LevelCurse, LevelStage, ModCallback, PickupPrice, PickupVariant, RoomType, SoundEffect, TrinketType } from "isaac-typescript-definitions";
+import { BombSubType, ButtonAction, CacheFlag, CardType, CoinSubType, CollectibleType, DamageFlag, EffectVariant, EntityCollisionClass, EntityFlag, EntityType, GridRoom, HeartSubType, ItemConfigTag, KeySubType, LevelCurse, LevelStage, ModCallback, PickupPrice, PickupVariant, RoomType, SoundEffect, TrinketType } from "isaac-typescript-definitions";
 import { ModEnums } from "../ModEnums";
 import { CallbackPostPlayerRenderAbove } from "../misc/AdditionalCallbacks";
 import { Utils } from "../misc/Utils";
@@ -18,12 +18,13 @@ const HunterKeyInfo = {
     [ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Double]: {Value: 8, BasePrice: 15}
 }
 const HunterPrice = -100;
+const AlphaChangeSpeed = 0.5 / 30;
 
 function CollectHunterPickup(this: void, pickup: EntityPickup, player: EntityPlayer) {
     if (pickup.Price !== undefined) {
         if (pickup.Price > 0) player.AddCoins(-pickup.Price);
     }
-    v.run.keyShards += HunterKeyInfo[pickup.SubType]?.Value ?? 0;
+    AddHunterKeyShards(HunterKeyInfo[pickup.SubType]?.Value ?? 0);
     sfxManager.Play(SoundEffect.BONE_HEART);
 }
 function CollisionHunterPickup(this: void, pickup: EntityPickup, player: EntityPlayer) {
@@ -231,6 +232,8 @@ let GuppyEyeOffsets = [
 	[Vector(-6, 16), Vector(6, 16), Vector(-12, 8), Vector(0, 8), Vector(12, 8), Vector(-6, 0), Vector(6, 0)],
 	[Vector(0, 16), Vector(9, 14), Vector(-9, 14), Vector(12, 8), Vector(-12, 8), Vector(9, 2), Vector(-9, 2), Vector(0,0)]
 ];
+let tabHoldTime = 0;
+let framesAfterPickupKey = 0;
 
 function GetHunterPriceFromRegular(price: int) {
     if (price > 0) price = getAdjustedPrice(price);
@@ -281,6 +284,11 @@ function UnlockItemSprite(pickup: EntityPickup) {
         });
         else effects.forEach(effect => effect.Remove());
     }
+}
+
+function AddHunterKeyShards(keyShards: int) {
+    v.run.keyShards = math.max(v.run.keyShards + keyShards, 0);
+    framesAfterPickupKey = 0;
 }
 
 export class Teegro extends ModFeature {
@@ -420,7 +428,7 @@ export class Teegro extends ModFeature {
         if (!pickupInfo.locked && pickupInfo.wait > 0) return !pickupInfo.canTouch;
         // If item is just locked - try buy it
         if (v.run.keyShards >= pickupInfo.cost) {
-            v.run.keyShards -= pickupInfo.cost;
+            AddHunterKeyShards(-pickupInfo.cost);
             pickupInfo.locked = false;
             UnlockItemSprite(pickup);
         }
@@ -513,7 +521,7 @@ export class Teegro extends ModFeature {
         if (sprite.GetAnimation() != "Idle" || v.run.keyShards < 4 || pickup.Price == PickupPrice.SPIKES && player.GetDamageCooldown() > 0) return;
         let ind = mod.getPickupIndex(pickup);
         let drop = v.level.hunterChestRewards.get(ind); if (!drop || drop.length == 0) return;
-        v.run.keyShards -= 4;
+        AddHunterKeyShards(-4);
         sfxManager.Play(SoundEffect.CHEST_OPEN);
         if (drop[0]?.Variant == PickupVariant.COLLECTIBLE) {
             let pickup1 = spawnPickup(PickupVariant.COLLECTIBLE, drop[0].SubType, pickup.Position);
@@ -601,18 +609,6 @@ export class Teegro extends ModFeature {
         return;
     }
 
-    @CallbackPostPlayerRenderAbove()
-    RenderHunterKeyCount(player: EntityPlayer) {
-        if (player.GetPlayerType() != ModEnums.PLAYER_TEEGRO || !game.GetHUD().IsVisible()) return;
-        let shards = v.run.keyShards;
-        let pos = Utils.worldToMirrorScreen(player.Position).add(Vector(-5, -40));
-        let scale = 0.5;
-        font.DrawStringScaled(math.floor(shards / 4).toString(), pos.X, pos.Y - 4, scale, scale, K_COLORS.White, 20, true);
-        let sprite = defaultMapGetPlayer(hunterKeysCountSprites, player);
-        sprite.SetFrame(shards % 4);
-        sprite.Render(pos);
-    }
-
     @Callback(ModCallback.POST_PICKUP_RENDER, ModEnums.PICKUP_HUNTER_CHEST)
     GuppysEyeFunctionality(pickup: EntityPickup) {
         if (!anyPlayerHasCollectible(CollectibleType.GUPPYS_EYE) || pickup.GetSprite().GetAnimation() != "Idle") return;
@@ -640,5 +636,41 @@ export class Teegro extends ModFeature {
             guppysEyeSprite.SetFrame("Idle", 0);
             guppysEyeSprite.Render(renderPosition.add(GuppyEyeOffsets[count][i] ?? VectorZero).add(offset));
         });
+    }
+
+    @Callback(ModCallback.POST_UPDATE)
+    PostUpdateForRender() {
+        if (isActionPressedOnAnyInput(ButtonAction.MAP)) tabHoldTime = math.min(tabHoldTime + 1, 150);
+        else tabHoldTime = 0;
+        if (tabHoldTime >= 15) framesAfterPickupKey = 30;
+        else framesAfterPickupKey = math.min(framesAfterPickupKey + 1, 90);
+    }
+
+    @CallbackPostPlayerRenderAbove()
+    RenderHunterKeyCount(player: EntityPlayer) {
+        if (player.GetPlayerType() != ModEnums.PLAYER_TEEGRO || !game.GetHUD().IsVisible()) return;
+        let sprite = defaultMapGetPlayer(hunterKeysCountSprites, player);
+        let shards = v.run.keyShards;
+        let pos = Utils.worldToMirrorScreen(player.Position).add(Vector(-5, -40));
+        let scale = 0.5;
+        let kColor = copyKColor(K_COLORS.White);
+        let color = copyColor(sprite.Color);
+        let targetAlpha = (60 - framesAfterPickupKey) / 20; // < 40 => 1, 60 => 0
+        let newAlpha = clamp(Utils.moveTowards(sprite.Color.A, targetAlpha, AlphaChangeSpeed * 3), 0, 1);
+        kColor.Alpha = newAlpha;
+        font.DrawStringScaled(math.floor(shards / 4).toString(), pos.X, pos.Y - 4, scale, scale, kColor, 20, true);
+        color.A = newAlpha;
+        sprite.Color = color;
+        sprite.SetFrame(shards % 4);
+        sprite.Render(pos);
+    }
+
+    @CallbackCustom(ModCallbackCustom.POST_EFFECT_RENDER_FILTER, ItemChainsVariant)
+    HunterChainsOpacity(effect: EntityEffect, renderOffset: Vector) {
+        let sprite = effect.GetSprite();
+        let color = copyColor(sprite.Color);
+        let targetAlpha = (30 - tabHoldTime) / 30; // 0 => 1, 30 => 0.3
+        color.A = clamp(Utils.moveTowards(color.A, targetAlpha, AlphaChangeSpeed), 0.3, 1);
+        sprite.Color = color;
     }
 }

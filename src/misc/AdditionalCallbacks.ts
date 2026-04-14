@@ -12,7 +12,7 @@ export class PostPlayerRenderAbove extends ModFeature {
 
     @CallbackCustom(ModCallbackCustom.POST_NEW_ROOM_EARLY)
     NewRoomEarly() {
-        // Stop render UI on transition and start on the second POST_PLAYER_RENDER (it called after transition)
+        // Stop render UI on transition and start on the second POST_PLAYER_RENDER (it is called after transition ended)
         this.v.run.shouldRender = 0;
     }
 

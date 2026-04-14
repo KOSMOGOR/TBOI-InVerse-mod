@@ -1,5 +1,5 @@
 import { ActiveSlot, ButtonAction, CacheFlag, CardType, CollectibleAnimation, CollectibleType, DamageFlag, Direction, DoorSlot, DoorVariant, EffectVariant, EntityType, ItemType, LaserVariant, LevelCurse, LevelStage, ModCallback, PickupVariant, PlayerItemAnimation, RoomType, SoundEffect, TrinketType, UseFlag } from "isaac-typescript-definitions";
-import { addFlag, addPlayerStat, arrayEquals, Callback, CallbackCustom, checkFamiliar, clamp, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getGoldenTrinketType, getGridIndexDelta, getPickups, getPlayers, getPlayerTrinkets, getPocketItems, getRandomArrayElementAndRemove, getRandomInt, getRoomGridIndex, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, getSurroundingGridIndexes, gridCoordinatesToWorldPosition, hasFlag, inRange, isDoorSlotValidAtGridIndexForRedRoom, isEmptyFlag, isEntity, isGlitchedCollectible, isGoldenTrinketType, isPickup, isPlayerAbleToAim, isSecretRoomType, isVector, itemConfig, K_COLORS, logDamageFlags, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PlayerIndex, PocketItemType, removeFlag, sfxManager, spawnEffect, spawnTrinket, VectorZero } from "isaacscript-common";
+import { addFlag, addPlayerStat, arrayEquals, Callback, CallbackCustom, checkFamiliar, clamp, copyColor, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getGoldenTrinketType, getGridIndexDelta, getPickups, getPlayers, getPlayerTrinkets, getPocketItems, getRandomArrayElementAndRemove, getRandomInt, getRoomGridIndex, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, getSurroundingGridIndexes, gridCoordinatesToWorldPosition, hasFlag, inRange, isActionPressedOnAnyInput, isDoorSlotValidAtGridIndexForRedRoom, isEmptyFlag, isEntity, isGlitchedCollectible, isGoldenTrinketType, isPickup, isPlayerAbleToAim, isSecretRoomType, isVector, itemConfig, K_COLORS, logDamageFlags, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PlayerIndex, PocketItemType, removeFlag, sfxManager, spawnEffect, spawnTrinket, VectorZero } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { Utils } from "../misc/Utils";
 import { InnateItems } from "../misc/InnateItems";
@@ -28,6 +28,7 @@ const DirectionToAnim = {
     [Direction.LEFT]: "Side",
     [Direction.RIGHT]: "Side"
 }
+const AlphaChangeSpeed = 1 / 30;
 
 // #region Momenttum skills
 
@@ -276,7 +277,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
             // All other - should be blowable and something similar
             return 1;
         }
-    ).setName("Open\ndoor"),
+    ).setName("OpenDoor"),
     new MomentuumSkill<TargetDoorSlot>(
         (player) => {
             let level = game.GetLevel();
@@ -321,7 +322,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
             else level.MakeRedRoomDoor(getRoomGridIndex(), target.doorSlot);
         },
         () => 4
-    ).setName("Open\nwall"),
+    ).setName("OpenWall"),
     new MomentuumSkill<TargetEmpty>(
         (player) => {
             return getPocketItems(player).some(pid => pid.type == PocketItemType.CARD && canCardBecomeMomentuumCard(pid.subType)) ? {} : undefined;
@@ -349,14 +350,25 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
     new MomentuumSkill<TargetEmpty>(
         () => {
             let roomType = game.GetRoom().GetType();
-            return [RoomType.ANGEL, RoomType.DEVIL].includes(roomType) && !v.level.MomentuumFixateUsed ? {} : undefined;
+            return roomType == RoomType.ANGEL && !v.level.MomentuumFixateUsed ? {} : undefined;
         },
         (player) => {
             v.level.MomentuumFixateUsed = true;
             InnateItems.AddItemForLevel(player, CollectibleType.GOAT_HEAD);
         },
         () => 2
-    ).setName("Fixate"),
+    ).setName("FixateAngel"),
+    new MomentuumSkill<TargetEmpty>(
+        () => {
+            let roomType = game.GetRoom().GetType();
+            return roomType == RoomType.DEVIL && !v.level.MomentuumFixateUsed ? {} : undefined;
+        },
+        (player) => {
+            v.level.MomentuumFixateUsed = true;
+            InnateItems.AddItemForLevel(player, CollectibleType.GOAT_HEAD);
+        },
+        () => 2
+    ).setName("FixateDevil"),
     new MomentuumSkill<TargetEmpty>(
         () => {
             let curses = game.GetLevel().GetCurses();
@@ -411,7 +423,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
             game.GetRoom().MamaMegaExplosion(player.Position, player);
         },
         () => game.GetRoom().GetType() == RoomType.BOSS ? 8 : 4
-    ).setName("Mama\nMega"),
+    ).setName("MamaMega"),
 ]
 
 // #region Resources and data
@@ -447,6 +459,15 @@ const MomentuumChargeSprites = new DefaultMap<PlayerIndex, {base: Sprite, cost: 
     charges.costExtra.Color = Color(1, 1, 1, 0.5);
     return charges;
 });
+const MomentuumHUDSprites = new DefaultMap<PlayerIndex, {base: Sprite, skill: Sprite}>(() => {
+    let hud = {base: Sprite(), skill: Sprite()};
+    let path = "gfx/ui/Momentuum_HUD.anm2";
+    hud.base.Load(path, true);
+    hud.base.Play("IdleBase", true);
+    hud.skill.Load(path, true);
+    hud.skill.Play("IdleSkill", true);
+    return hud;
+});
 
 // Data to save
 const v = {
@@ -464,9 +485,12 @@ const v = {
 export const MomentuumData = v;
 
 // Additional data
-const Holding = new DefaultMap<PlayerIndex, int>(0)
-const AvailableMomentuumSkills = new Map<PlayerIndex, int[]>();
+const Holding = new DefaultMap<PlayerIndex, int>(0);
+const AvailableMomentuumSkillIndexes = new Map<PlayerIndex, int[]>();
 let timeSpentInRoom = 0;
+let skillChanged = new DefaultMap<PlayerIndex, boolean>(false);
+let tabHoldTime = 0;
+let forceMaxAlpha = 0;
 
 // #region Momentuum
 
@@ -530,18 +554,22 @@ export class Momentuum extends ModFeature {
                 if (MomentuumSkills[i]?.canUseSkill(player)) newAvailableMomentuumSkills.push(i);
             }
             let skillChoice = defaultMapGetPlayer(v.run.MomentuumSkillChoice, player);
-            if (!arrayEquals(mapGetPlayer(AvailableMomentuumSkills, player) ?? [], newAvailableMomentuumSkills)) {
-                mapSetPlayer(AvailableMomentuumSkills, player, newAvailableMomentuumSkills);
+            let currentAvailableSkills = mapGetPlayer(AvailableMomentuumSkillIndexes, player) ?? [];
+            if (!arrayEquals(currentAvailableSkills, newAvailableMomentuumSkills)) {
+                if (newAvailableMomentuumSkills.some(skillInd => !currentAvailableSkills.includes(skillInd))) forceMaxAlpha = 30;
+                mapSetPlayer(AvailableMomentuumSkillIndexes, player, newAvailableMomentuumSkills);
                 skillChoice = newAvailableMomentuumSkills[0] ?? -1;
             }
             // Change skill choice, if current is unavailable or player pressed ButtonAction.DROP
             if (Input.IsActionTriggered(ButtonAction.DROP, player.ControllerIndex)) {
                 let skillChoiceAvailableInd = newAvailableMomentuumSkills.indexOf(skillChoice); // not found = -1
                 if (newAvailableMomentuumSkills.length > 0) skillChoice = newAvailableMomentuumSkills[(skillChoiceAvailableInd + 1) % newAvailableMomentuumSkills.length] ?? -1;
+                mapSetPlayer(skillChanged, player, true);
+                forceMaxAlpha = 30;
             }
             mapSetPlayer(v.run.MomentuumSkillChoice, player, skillChoice);
-        } else if (!player.HasCollectible(ModEnums.COLLECTIBLE_MOMENTUUM) && mapHasPlayer(AvailableMomentuumSkills, player)) {
-            mapDeletePlayer(AvailableMomentuumSkills, player);
+        } else if (!player.HasCollectible(ModEnums.COLLECTIBLE_MOMENTUUM) && mapHasPlayer(AvailableMomentuumSkillIndexes, player)) {
+            mapDeletePlayer(AvailableMomentuumSkillIndexes, player);
             mapDeletePlayer(v.run.MomentuumSkillChoice, player);
         }
     }
@@ -671,6 +699,13 @@ export class Momentuum extends ModFeature {
 
     // #region Render UI
 
+    @Callback(ModCallback.POST_UPDATE)
+    PostUpdateForRender() {
+        if (isActionPressedOnAnyInput(ButtonAction.MAP)) tabHoldTime = math.min(tabHoldTime + 1, 150);
+        else tabHoldTime = 0;
+        if (forceMaxAlpha > 0) forceMaxAlpha--;
+    }
+
     @CallbackPostPlayerRenderAbove()
     RenderMomentuumUI(player: EntityPlayer) {
         if (!player.HasCollectible(ModEnums.COLLECTIBLE_MOMENTUUM) || !player.IsVisible()) return;
@@ -684,10 +719,12 @@ export class Momentuum extends ModFeature {
     }
 
     RenderMomentuuumCharges(player: EntityPlayer) {
-        // let posText = Utils.worldToMirrorScreen(player.Position).add(Vector(-20, -40));
-        // font.DrawString(defaultMapGetPlayer(v.run.MomentuumCharges, player).toString(), posText.X, posText.Y, K_COLORS.White, 40, true);
         let pos = Utils.worldToMirrorScreen(player.Position).add(Vector(0, 10));
         let chargeSprites = defaultMapGetPlayer(MomentuumChargeSprites, player);
+        let color = copyColor(chargeSprites.base.Color);
+        let targetAlpha = forceMaxAlpha > 0 ? 1 : tabHoldTime / 30; // 0 => 0.3, 30 => 1
+        color.A = clamp(Utils.moveTowards(color.A, targetAlpha, AlphaChangeSpeed), 0.3, 1);
+        chargeSprites.base.Color = color;
         chargeSprites.base.Render(pos);
         let skill = MomentuumSkills[defaultMapGetPlayer(v.run.MomentuumSkillChoice, player)];
         let charges = defaultMapGetPlayer(v.run.MomentuumCharges, player);
@@ -697,36 +734,65 @@ export class Momentuum extends ModFeature {
         let costLower12 = clamp(12 - charges + cost, 0, cost);
         let costBigger12 = clamp(charges - 12, 0, cost);
         if (costBigger12 > 0) {
+            chargeSprites.costExtra.Color = color;
             chargeSprites.costExtra.SetFrame(extraCharges - 1);
             chargeSprites.costExtra.Render(pos);
         }
         if (extraCharges - costBigger12 > 0) {
+            chargeSprites.extra.Color = color;
             chargeSprites.extra.SetFrame(extraCharges - costBigger12 - 1);
             chargeSprites.extra.Render(pos);
         }
         if (costLower12 > 0) {
+            chargeSprites.cost.Color = color;
             chargeSprites.cost.SetFrame(empty + costLower12 - 1);
             chargeSprites.cost.Render(pos);
         }
         if (empty > 0) {
+            chargeSprites.empty.Color = color;
             chargeSprites.empty.SetFrame(empty - 1);
             chargeSprites.empty.Render(pos);
         }
     }
 
     RenderMomentuumSkills(player: EntityPlayer) {
-        let skills = mapGetPlayer(AvailableMomentuumSkills, player);
-        if (!skills || skills.length == 0) return;
-        let scale = 0.5;
-        let skillsRenderOffset = Vector(30, 0), xStartOffset = skillsRenderOffset.X * (skills.length - 1) / 2;
-        let pos = Utils.worldToMirrorScreen(player.Position).add(Vector(-20 - xStartOffset, 20));
-        skills.forEach(skillInd => {
-            let posMirror = pos;
-            font.DrawStringScaled(MomentuumSkills[skillInd]?.name ?? "-", posMirror.X, posMirror.Y, scale, scale, K_COLORS.White, 40, true);
-            if (skillInd == mapGetPlayer(v.run.MomentuumSkillChoice, player)) font.DrawString("^", posMirror.X, posMirror.Y + 10, K_COLORS.White, 40, true);
-            font.DrawStringScaled(MomentuumSkills[skillInd]?.getChargeCost(player).toString() ?? "-", posMirror.X, posMirror.Y + 25, scale, scale, K_COLORS.White, 40, true);
-            pos = pos.add(skillsRenderOffset);
-        });
+        // Get player's skills and current choice
+        let skillIndexes = mapGetPlayer(AvailableMomentuumSkillIndexes, player);
+        if (!skillIndexes || skillIndexes.length == 0) return;
+        let currentSkillChoice = defaultMapGetPlayer(v.run.MomentuumSkillChoice, player);
+        // Get HUD and reset it animations if needed
+        let hud = defaultMapGetPlayer(MomentuumHUDSprites, player);
+        if (hud.base.IsFinished("SwitchBase")) {
+            hud.base.Play("IdleBase", true);
+            hud.skill.Play("IdleSkill", true);
+        }
+        // Get skills to render
+        let currentSkillIndexesIndex = skillIndexes.findIndex(si => si == currentSkillChoice);
+        // let skillIndexesIndexesToRender = [currentSkillIndexesIndex - 1, currentSkillIndexesIndex, currentSkillIndexesIndex + 1, currentSkillIndexesIndex + 2]
+        let skillIndexesIndexesToRender = [currentSkillIndexesIndex - 2, currentSkillIndexesIndex - 1, currentSkillIndexesIndex, currentSkillIndexesIndex + 1]
+            .map(ind => (ind + skillIndexes.length) % skillIndexes.length);
+        let skillsToRender = skillIndexesIndexesToRender.map(sii => MomentuumSkills[skillIndexes[sii] ?? 0]);
+        // Change animation if player's choice changed
+        let playerSkillChanged = defaultMapGetPlayer(skillChanged, player);
+        if (playerSkillChanged) mapSetPlayer(skillChanged, player, false);
+        if (playerSkillChanged) {
+            hud.base.Play("SwitchBase", true);
+            hud.skill.Play("SwitchSkill", true);
+        }
+        // Replace skills with current selected
+        for (let i = 0; i <= 3; i++) hud.skill.ReplaceSpritesheet(i + 2, `gfx/ui/MomFunc/${skillsToRender[i]?.name ?? "Tmp"}.png`);
+        hud.skill.LoadGraphics();
+        // Render
+        let pos = Utils.worldToMirrorScreen(player.Position).add(Vector(0, 10));
+        let color = copyColor(hud.base.Color);
+        let targetAlpha = forceMaxAlpha > 0 ? 1 : tabHoldTime / 30 // 0 => 0, 30 => 1
+        color.A = clamp(Utils.moveTowards(color.A, targetAlpha, AlphaChangeSpeed), 0, 1);
+        hud.base.Color = color;
+        hud.base.Render(pos);
+        hud.base.Update();
+        hud.skill.Color = color;
+        hud.skill.Render(pos);
+        hud.skill.Update();
     }
 
     RenderMomentuuumSkillTarget(player: EntityPlayer) {
