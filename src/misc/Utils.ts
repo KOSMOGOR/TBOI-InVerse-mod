@@ -1,5 +1,5 @@
 import { CollectibleType, ItemPoolType, ItemType, type TrinketType } from "isaac-typescript-definitions";
-import { defaultMapGetPlayer, game, getPlayers, getRandomArrayElement, getRandomInt, isRNG, itemConfig, mapSetPlayer, newRNG, type DefaultMap, type PlayerIndex } from "isaacscript-common";
+import { defaultMapGetPlayer, game, getPickups, getPlayers, getRandomArrayElement, getRandomInt, isRNG, itemConfig, mapSetPlayer, newRNG, type DefaultMap, type PlayerIndex } from "isaacscript-common";
 
 export class Utils {
     static getItemFromPool(pools: ItemPoolType | ItemPoolType[], rngOrSeed: RNG | Seed, minimumQuality: int = 0): CollectibleType {
@@ -72,5 +72,13 @@ export class Utils {
         if (Math.abs(target - current) <= maxDelta) return target;
         if (current < target) return current + maxDelta;
         else return current - maxDelta;
+    }
+
+    static getFreePickupOptionsIndex() {
+        let pickedOptionsIndexes = new Set<int>();
+        getPickups().forEach(pickup => pickedOptionsIndexes.add(pickup.OptionsPickupIndex));
+        let optionsIndex = 1;
+        while (pickedOptionsIndexes.has(optionsIndex)) optionsIndex++;
+        return optionsIndex;
     }
 }

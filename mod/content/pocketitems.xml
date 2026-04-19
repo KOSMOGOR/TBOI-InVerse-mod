@@ -1,24 +1,24 @@
 <pocketitems>
-	<card type="tarot" pickup="1" name="Momentuum: 0 - The Fool" description="" hud="momentuum_fool" announcer="375" announcerdelay="60" mimiccharge="12" />
-	<card type="tarot" pickup="1" name="Momentuum: I - The Magician" description="" hud="momentuum_magician" announcer="381" mimiccharge="12" />
-	<card type="tarot" pickup="1" name="Momentuum: II - The High Priestess" description="" hud="momentuum_priestess" announcer="379" announcerdelay="110" mimiccharge="12" />
-	<card type="tarot" pickup="1" name="Momentuum: III - The Empress" description="" hud="momentuum_empress" announcer="374" announcerdelay="70" mimiccharge="12" />
-	<card type="tarot" pickup="1" name="Momentuum: IV - The Emperor" description="" hud="momentuum_emperor" greedmode="false" announcer="373" announcerdelay="70" mimiccharge="12" />
-	<card type="tarot" pickup="1" name="Momentuum: V - The Hierophant" description="" hud="momentuum_hierophant" announcer="378" announcerdelay="70" mimiccharge="12" />
+	<card type="tarot" pickup="1" name="Momentuum: 0 - The Fool" description="Is this you?" hud="momentuum_fool" announcer="375" announcerdelay="60" mimiccharge="12" />
+	<card type="tarot" pickup="1" name="Momentuum: I - The Magician" description="I shall play the greatest trick of all." hud="momentuum_magician" announcer="381" mimiccharge="12" />
+	<card type="tarot" pickup="1" name="Momentuum: II - The High Priestess" description="I shall find peace in faith." hud="momentuum_priestess" announcer="379" announcerdelay="110" mimiccharge="12" />
+	<card type="tarot" pickup="1" name="Momentuum: III - The Empress" description="I shall endure any loss." hud="momentuum_empress" announcer="374" announcerdelay="70" mimiccharge="12" />
+	<card type="tarot" pickup="1" name="Momentuum: IV - The Emperor" description="I shall choose my opponent." hud="momentuum_emperor" greedmode="false" announcer="373" announcerdelay="70" mimiccharge="12" />
+	<card type="tarot" pickup="1" name="Momentuum: V - The Hierophant" description="I shall unite body and soul." hud="momentuum_hierophant" announcer="378" announcerdelay="70" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: VI - The Lovers" description="I shall find my true love." hud="momentuum_lovers" announcer="380" announcerdelay="70" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: VII - The Chariot" description="I shall ram all my obstacles." hud="momentuum_chariot" announcer="371" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: VIII - Justice" description="I shall be the ultimate judge of fate." hud="momentuum_justice" announcer="349" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: IX - The Hermit" description="I shall become back my money." hud="momentuum_hermit" announcer="377" announcerdelay="60" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: X - Wheel of Fortune" description="I shall win in any odds." hud="momentuum_wheel" announcer="391" announcerdelay="60" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: XI - Strength" description="I shall become the strongest" hud="momentuum_strength" announcer="365" mimiccharge="12" />
-	<card type="tarot" pickup="1" name="Momentuum: XII - The Hanged Man" description="I shall ascend beyond boundaries." hud="momentuum_hanged" announcer="376" mimiccharge="12" />
+	<card type="tarot" pickup="1" name="Momentuum: XII - The Hanged Man" description="I shall try again and again and again." hud="momentuum_hanged" announcer="376" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: XIII - Death" description="I shall become Nihility, the end of all" hud="momentuum_death" announcer="337" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: XIV - Temperance" description="I would really like an apple right now." hud="momentuum_temperance" announcer="370" announcerdelay="60" mimiccharge="12" />
-	<card type="tarot" pickup="1" name="Momentuum: XV - The Devil" description="" hud="momentuum_devil" announcer="372" announcerdelay="40" mimiccharge="12" />
-	<card type="tarot" pickup="1" name="Momentuum: XVI - The Tower" description="" hud="momentuum_tower" announcer="385" announcerdelay="20" mimiccharge="12" />
+	<card type="tarot" pickup="1" name="Momentuum: XV - The Devil" description="I shall find joy in sin." hud="momentuum_devil" announcer="372" announcerdelay="40" mimiccharge="12" />
+	<card type="tarot" pickup="1" name="Momentuum: XVI - The Tower" description="EKUS-PLOSION!" hud="momentuum_tower" announcer="385" announcerdelay="20" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: XVII - The Stars" description="I shall see a rising star." hud="momentuum_stars" greedmode="false" announcer="383" announcerdelay="60" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: XVIII - The Moon" description="I shall see the universal secrets." hud="momentuum_moon" greedmode="false" announcer="382" announcerdelay="60" mimiccharge="12" />
-	<card type="tarot" pickup="1" name="Momentuum: XIX - The Sun" description="" hud="momentuum_sun" announcer="384" announcerdelay="10" mimiccharge="12" />
+	<card type="tarot" pickup="1" name="Momentuum: XIX - The Sun" description="I shall set the world ablaze." hud="momentuum_sun" announcer="384" announcerdelay="10" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: XX - Judgement" description="I shall prove myself to the world." hud="momentuum_judgement" announcer="348" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: XXI - The World" description="I shall see far and beyond." hud="momentuum_world" announcer="386" mimiccharge="12" />
 </pocketitems>
