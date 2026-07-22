@@ -1,5 +1,5 @@
-import { CollectibleType, ItemPoolType, ItemType, type TrinketType } from "isaac-typescript-definitions";
-import { defaultMapGetPlayer, game, getPickups, getPlayers, getRandomArrayElement, getRandomInt, isRNG, itemConfig, mapSetPlayer, newRNG, type DefaultMap, type PlayerIndex } from "isaacscript-common";
+import { CollectibleType, ItemPoolType, ItemType, RoomType, type TrinketType } from "isaac-typescript-definitions";
+import { defaultMapGetPlayer, game, getGridIndexDelta, getPickups, getPlayers, getRandomArrayElement, getRoomGridIndex, isDoorSlotValidAtGridIndexForRedRoom, isRNG, itemConfig, mapSetPlayer, MAX_LEVEL_GRID_INDEX, newRNG, type DefaultMap, type PlayerIndex } from "isaacscript-common";
 
 export class Utils {
     static getItemFromPool(pools: ItemPoolType | ItemPoolType[], rngOrSeed: RNG | Seed, minimumQuality: int = 0): CollectibleType {
@@ -80,5 +80,25 @@ export class Utils {
         let optionsIndex = 1;
         while (pickedOptionsIndexes.has(optionsIndex)) optionsIndex++;
         return optionsIndex;
+    }
+
+    static canBeRedRoom(doorSlot: int) {
+        let level = game.GetLevel();
+        let room = game.GetRoom();
+        let roomShape = room.GetRoomShape();
+        let gridIndex = getRoomGridIndex();
+        if (gridIndex < 0 || gridIndex > MAX_LEVEL_GRID_INDEX) return false;
+        let door = room.GetDoor(doorSlot);
+        let canBeRedRoomFirst = door == undefined && isDoorSlotValidAtGridIndexForRedRoom(doorSlot, gridIndex);
+        if (!canBeRedRoomFirst) return false;
+        let indexDelta = getGridIndexDelta(roomShape, doorSlot);
+        if (!indexDelta) return false;
+        let potenrialRedRoomIndex = gridIndex + indexDelta;
+        let surroungingIndexesDelta = [-13, -1, 1, 13];
+        for (let ind of surroungingIndexesDelta) {
+            let surrondRoom = level.GetRoomByIdx(potenrialRedRoomIndex + ind);
+            if (surrondRoom.Data && surrondRoom.Data.Type == RoomType.BOSS) return false;
+        }
+        return true;
     }
 }

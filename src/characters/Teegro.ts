@@ -12,10 +12,10 @@ const TeegroTail = Isaac.GetCostumeIdByPath("gfx/characters/Teegro_Tail.anm2");
 const ItemChainsVariant = Isaac.GetEntityVariantByName("ItemChains");
 const HunterPriceEffectVariant = Isaac.GetEntityVariantByName("HunterPrice");
 const HunterKeyInfo = {
-    [ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Shard]: {Value: 1, BasePrice: 5},
-    [ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Half]: {Value: 2, BasePrice: 5},
-    [ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Full]: {Value: 4, BasePrice: 15},
-    [ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Double]: {Value: 8, BasePrice: 15}
+    [ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Shard]: {Value: 1, BasePrice: 5},
+    [ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Half]: {Value: 2, BasePrice: 5},
+    [ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Full]: {Value: 4, BasePrice: 15},
+    [ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Double]: {Value: 8, BasePrice: 15}
 }
 const HunterPrice = -100;
 const AlphaChangeSpeed = 0.5 / 30;
@@ -32,10 +32,10 @@ function CollisionHunterPickup(this: void, pickup: EntityPickup, player: EntityP
     if (pickup.Price > 0 && player.GetNumCoins() < pickup.Price || pickup.Price == PickupPrice.SPIKES && player.GetDamageCooldown() > 0) return true;
     return;
 }
-mod.registerCustomPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Shard, CollectHunterPickup, CollisionHunterPickup);
-mod.registerCustomPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Half, CollectHunterPickup, CollisionHunterPickup);
-mod.registerCustomPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Full, CollectHunterPickup, CollisionHunterPickup);
-mod.registerCustomPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Double, CollectHunterPickup, CollisionHunterPickup);
+mod.registerCustomPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Shard, CollectHunterPickup, CollisionHunterPickup);
+mod.registerCustomPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Half, CollectHunterPickup, CollisionHunterPickup);
+mod.registerCustomPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Full, CollectHunterPickup, CollisionHunterPickup);
+mod.registerCustomPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Double, CollectHunterPickup, CollisionHunterPickup);
 
 class HunterChestReward {
     _getReward: (rng: RNG) => {reward: {Variant: PickupVariant, SubType: int}, fixate?: boolean};
@@ -72,7 +72,7 @@ const HunterChestRewards: HunterChestReward[] = [
         true
     ),
     new HunterChestReward(
-        () => { return {reward: {Variant: ModEnums.PICKUP_HUNTER_KEY_VARIANT, SubType: ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Shard, anm2: "items/pickups/Pickup_HunterKey_Half"}}; },
+        () => { return {reward: {Variant: ModEnums.PICKUP_HUNTER_KEY_VARIANT, SubType: ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Shard, anm2: "items/pickups/Pickup_HunterKey_Half"}}; },
         () => {
             let count = Utils.getAllPlayersTrinketMultiplier(TrinketType.RUSTED_KEY);
             let chance = 40 + (count >= 1 ? 10 : 0) + (count >= 2 ? 5 : 0);
@@ -340,9 +340,9 @@ export class Teegro extends ModFeature {
         if (!room.IsFirstVisit()) return;
         let center = room.GetCenterPos();
         if (inRoomType(RoomType.ANGEL)) {
-            spawnPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Full, room.FindFreePickupSpawnPosition(room.GetCenterPos()));
+            spawnPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Full, room.FindFreePickupSpawnPosition(room.GetCenterPos()));
         } else if (inRoomType(RoomType.DEVIL)) {
-            let key = spawnPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Full, room.FindFreePickupSpawnPosition(center.add(Vector(-120, -40))));
+            let key = spawnPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Full, room.FindFreePickupSpawnPosition(center.add(Vector(-120, -40))));
             key.AutoUpdatePrice = false;
             key.Price = PickupPrice.SPIKES;
             let chest = spawnPickup(ModEnums.PICKUP_HUNTER_CHEST, 0, room.FindFreePickupSpawnPosition(center.add(Vector(120, -40))));
@@ -359,7 +359,7 @@ export class Teegro extends ModFeature {
         if (!getCharacters().includes(ModEnums.PLAYER_TEEGRO)) return;
         let room = game.GetRoom();
         if (!v.run.tookDamageThisRoom && getRandomInt(1, 2, game.GetRoom().GetAwardSeed()) == 1)
-            spawnPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Shard, room.FindFreePickupSpawnPosition(room.GetCenterPos()));
+            spawnPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Shard, room.FindFreePickupSpawnPosition(room.GetCenterPos()));
     }
 
     @CallbackCustom(ModCallbackCustom.POST_PICKUP_UPDATE_FILTER, PickupVariant.COLLECTIBLE)
@@ -475,10 +475,10 @@ export class Teegro extends ModFeature {
             let targetVariant = pickup.Variant, targetSubType = pickup.SubType
             if (rand == 1) {
                 targetVariant = ModEnums.PICKUP_HUNTER_KEY_VARIANT;
-                targetSubType = ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Full
+                targetSubType = ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Full
             } else if (rand <= 25) {
                 targetVariant = ModEnums.PICKUP_HUNTER_KEY_VARIANT;
-                targetSubType = ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Shard;
+                targetSubType = ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Shard;
             }
             if (pickup.Variant != targetVariant) {
                 pickup.Morph(EntityType.PICKUP, targetVariant, targetSubType, true, true);
@@ -487,7 +487,7 @@ export class Teegro extends ModFeature {
             pickup.GetSprite().LoadGraphics()
         } else if (Isaac.GetPlayer().GetNumCoins() >= 30 && pickup.Variant == PickupVariant.COIN) {
             if (rand <= 10) {
-                pickup.Morph(EntityType.PICKUP, ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Shard, true, true);
+                pickup.Morph(EntityType.PICKUP, ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Shard, true, true);
                 pickup.AutoUpdatePrice = false;
             }
         }
@@ -499,13 +499,13 @@ export class Teegro extends ModFeature {
         let ind = mod.getPickupIndex(pickup);
         if (v.level.checkedPickups.has(ind)) return;
         v.level.checkedPickups.add(ind);
+        if (!getCharacters().includes(ModEnums.PLAYER_TEEGRO)) return;
         let chance = onStage(LevelStage.DARK_ROOM_CHEST) ? 4 : 2;
         if (getRandomInt(1, 100, pickup.InitSeed) <= chance) pickup.Morph(pickup.Type, ModEnums.PICKUP_HUNTER_CHEST, 0);
     }
 
-    @CallbackCustom(ModCallbackCustom.POST_PICKUP_INIT_LATE)
+    @CallbackCustom(ModCallbackCustom.POST_PICKUP_INIT_LATE, ModEnums.PICKUP_HUNTER_CHEST)
     HunterChestGenerateReward(pickup: EntityPickup) {
-        if (pickup.Variant != ModEnums.PICKUP_HUNTER_CHEST) return;
         let ind = mod.getPickupIndex(pickup);
         if (v.level.hunterChestRewards.has(ind)) return;
         let rng = newRNG(pickup.DropSeed);
@@ -594,7 +594,7 @@ export class Teegro extends ModFeature {
     OnMinibossDeath(npc: EntityNPC) {
         if (!getCharacters().includes(ModEnums.PLAYER_TEEGRO)) return;
         if (npc.IsBoss() && !v.room.droppedKey) {
-            let subType = inRoomType(RoomType.MINI_BOSS) ? ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Shard : inRoomType(RoomType.BOSS, RoomType.ANGEL, RoomType.DEVIL) ? ModEnums.PICKIP_HUNTER_KEY_SUBTYPE.Full : -1;
+            let subType = inRoomType(RoomType.MINI_BOSS) ? ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Shard : inRoomType(RoomType.BOSS, RoomType.ANGEL, RoomType.DEVIL) ? ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Full : -1;
             if (subType != -1) {
                 spawnPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, subType, npc.Position, getRandomVector(undefined).Resized(5));
                 v.room.droppedKey = true;

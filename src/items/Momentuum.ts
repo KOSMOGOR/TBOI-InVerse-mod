@@ -174,13 +174,13 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
             statsGained.forEach(stat => momentuumStats.set(stat, momentuumStats.getAndSetDefault(stat) + 1));
             mapSetPlayer(v.run.MomentuumConsumedStats, player, momentuumStats);
             if (pickup.OptionsPickupIndex != 0) getPickups(PickupVariant.COLLECTIBLE).forEach(pickup2 => {
-                if (pickup2.OptionsPickupIndex == pickup.OptionsPickupIndex && !Utils.EqualPtrHash(pickup, pickup2)) {
+                if (pickup2.OptionsPickupIndex == pickup.OptionsPickupIndex) {
                     pickup2.Remove();
                     spawnEffect(EffectVariant.POOF_1, 0, pickup2.Position);
                 }
             });
-            pickup.Remove();
-            spawnEffect(EffectVariant.POOF_1, 0, pickup.Position);
+            player.AddCacheFlags(addFlag(CacheFlag.ALL));
+            player.EvaluateItems();
         },
         () => 3
     ).setName("Consume"),
@@ -216,8 +216,12 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
                 if (pickup.SubType == ModEnums.COLLECTIBLE_MOMENTUUM) charges = 12
                 else if ([CollectibleType.DATAMINER, CollectibleType.TMTRAINER].includes(pickup.SubType)) charges = getRandomInt(1, getMaxMomentuumCharges(player), pickup.DropSeed);
                 else charges = 2 + (itemConfig.GetCollectible(pickup.SubType)?.Quality ?? 0) * 2;
-                pickup.Remove();
-                spawnEffect(EffectVariant.POOF_1, 0, pickup.Position);
+                if (pickup.OptionsPickupIndex != 0) getPickups(PickupVariant.COLLECTIBLE).forEach(pickup2 => {
+                    if (pickup2.OptionsPickupIndex == pickup.OptionsPickupIndex) {
+                        pickup2.Remove();
+                        spawnEffect(EffectVariant.POOF_1, 0, pickup2.Position);
+                    }
+                });
             } else if (typeof target == "object" && player.HasCollectible(CollectibleType.SHARP_PLUG)) {
                 player.TakeDamage(2, addFlag(DamageFlag.RED_HEARTS, DamageFlag.ISSAC_HEART, DamageFlag.INVINCIBLE, DamageFlag.IV_BAG, DamageFlag.NO_MODIFIERS), EntityRef(player), 30);
                 charges = 2;
@@ -280,7 +284,6 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
     ).setName("OpenDoor"),
     new MomentuumSkill<TargetDoorSlot>(
         (player) => {
-            let level = game.GetLevel();
             let room = game.GetRoom();
             let roomShape = room.GetRoomShape();
             let doorSlotCoords = [];
@@ -288,25 +291,8 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
                 let coords = getRoomShapeDoorSlotCoordinates(roomShape, doorSlot); if (!coords) continue;
                 let pos = gridCoordinatesToWorldPosition(...coords);
                 let door = room.GetDoor(doorSlot);
-                let gridIndex = getRoomGridIndex()
                 if (player.Position.DistanceSquared(pos) <= MomentuumSkillsRadiusSq) {
-                    let canBeRedRoom = door == undefined && isDoorSlotValidAtGridIndexForRedRoom(doorSlot, gridIndex);
-                    if (canBeRedRoom) {
-                        while (true) {
-                            let indexDelta = getGridIndexDelta(roomShape, doorSlot);
-                            if (!indexDelta) break;
-                            let potenrialRedRoomIndex = gridIndex + indexDelta;
-                            let surroungingIndexesDelta = [-13, -1, 1, 13];
-                            for (let ind of surroungingIndexesDelta) {
-                                let surrondRoom = level.GetRoomByIdx(potenrialRedRoomIndex + ind);
-                                if (surrondRoom.Data && surrondRoom.Data.Type == RoomType.BOSS) {
-                                    canBeRedRoom = false;
-                                    break;
-                                }
-                            }
-                            break;
-                        }
-                    }
+                    let canBeRedRoom = Utils.canBeRedRoom(doorSlot);
                     let closedSecretRoom = door != undefined && !door.IsOpen() && [RoomType.SECRET, RoomType.SUPER_SECRET].includes(door.TargetRoomType);
                     if (canBeRedRoom || closedSecretRoom) doorSlotCoords.push({doorSlot, Position: pos});
                 }
@@ -407,7 +393,8 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
         (player) => {
             let emptyHearts = player.GetMaxHearts() - player.GetHearts();
             let charges = defaultMapGetPlayer(v.run.MomentuumCharges, player);
-            return emptyHearts != 0 ? math.min(emptyHearts, charges * 2) : undefined;
+            if (emptyHearts != 0 && charges > 0) return math.min(emptyHearts, charges * 2);
+            return undefined;
         },
         (player, target) => {
             player.AddHearts(target ?? 0);
@@ -626,7 +613,7 @@ export class Momentuum extends ModFeature {
 
     @Callback(ModCallback.EVALUATE_CACHE)
     MomentuumAddConsumedStats(player: EntityPlayer, cacheFlag: CacheFlag) {
-        if (!player.HasCollectible(ModEnums.COLLECTIBLE_MOMENTUUM) || !mapHasPlayer(v.run.MomentuumConsumedStats, player) || !MomentummConsumedStatsValues.has(cacheFlag)) return;
+        if (!mapHasPlayer(v.run.MomentuumConsumedStats, player) || !MomentummConsumedStatsValues.has(cacheFlag)) return;
         let stats = defaultMapGetPlayer(v.run.MomentuumConsumedStats, player);
         let statMult = stats.getAndSetDefault(cacheFlag);
         let statValue = MomentummConsumedStatsValues.get(cacheFlag) ?? 0;

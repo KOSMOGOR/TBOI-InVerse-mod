@@ -1,5 +1,5 @@
-import { CacheFlag, CardType, CollectibleType, DamageFlag, EntityFlag, EntityType, ModCallback, UseFlag, PlayerItemAnimation, SoundEffect, GridRoom, PickupVariant, RoomType, DisplayFlag, RoomDescriptorFlag, GeminiVariant, BeastVariant, DingleVariant, GurglingVariant, ItemPoolType, TrinketType, GridEntityType, PoopGridEntityVariant, PlayerType, PickupPrice, BombSubType, LevelStage, StageTransitionType, DarkEsauSubType, PillEffect, HeartSubType, FamiliarVariant, ChubVariant, DukeOfFliesVariant, PeepVariant, LokiVariant, FistulaVariant, WidowVariant, DaddyLongLegsVariant, PinVariant, PolycephalusVariant } from "isaac-typescript-definitions";
-import { addFlag, anyPlayerHasCollectible, bitFlags, Callback, CallbackCustom, changeRoom, COLORS, DefaultMap, defaultMapGetPlayer, game, getBosses, getEntities, getEntityFromPtrHash, getHorsePillColor, getPickups, getPillColorFromEffect, getPlayerFromIndex, getPlayerIndex, getPlayers, getRandomArrayElement, getRandomArrayIndex, getRandomInt, getRandomVector, getRoomDescriptorReadOnly, getRoomGridIndex, getRooms, getStage, getStageType, getUnusedDoorSlots, hasFlag, inRoomType, itemConfig, mapDeletePlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PickupIndex, repeat, sfxManager, smeltTrinket, spawn, spawnCollectible, spawnCollectibleFromPool, spawnHeart, spawnNPC, spawnPickup, teleport, type PlayerIndex } from "isaacscript-common";
+import { CacheFlag, CardType, CollectibleType, DamageFlag, EntityFlag, EntityType, ModCallback, UseFlag, PlayerItemAnimation, SoundEffect, GridRoom, PickupVariant, RoomType, DisplayFlag, RoomDescriptorFlag, GeminiVariant, BeastVariant, DingleVariant, GurglingVariant, ItemPoolType, TrinketType, GridEntityType, PoopGridEntityVariant, PlayerType, PickupPrice, BombSubType, DarkEsauSubType, HeartSubType, FamiliarVariant, ChubVariant, DukeOfFliesVariant, PeepVariant, LokiVariant, FistulaVariant, WidowVariant, DaddyLongLegsVariant, PinVariant, PolycephalusVariant } from "isaac-typescript-definitions";
+import { addFlag, anyPlayerHasCollectible, bitFlags, Callback, CallbackCustom, changeRoom, COLORS, DefaultMap, defaultMapGetPlayer, game, getBosses, getEntities, getEntityFromPtrHash, getPickups, getPlayerFromIndex, getPlayerIndex, getPlayers, getRandomArrayElement, getRandomArrayIndex, getRandomInt, getRandomVector, getRoomDescriptorReadOnly, getRoomGridIndex, getRooms, getUnusedDoorSlots, hasFlag, inRoomType, isCharacter, itemConfig, mapDeletePlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PickupIndex, repeat, sfxManager, smeltTrinket, spawn, spawnCollectible, spawnCollectibleFromPool, spawnHeart, spawnNPC, spawnPickup, teleport, type PlayerIndex } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { Utils } from "../misc/Utils";
 import { InnateItems } from "../misc/InnateItems";
@@ -69,7 +69,8 @@ function MomentuumWorld() {
     if (!inRoomType(RoomType.ERROR, RoomType.DEVIL, RoomType.ANGEL, RoomType.DUNGEON, RoomType.BOSS_RUSH, RoomType.GREED_EXIT, RoomType.ULTRA_SECRET) && !hasFlag(getRoomDescriptorReadOnly().Flags, RoomDescriptorFlag.RED_ROOM)) {
         let level = game.GetLevel();
         let gridIndex = level.GetCurrentRoomDesc().SafeGridIndex;
-        for (const doorSlot of getUnusedDoorSlots()) level.MakeRedRoomDoor(gridIndex, doorSlot);
+        for (const doorSlot of getUnusedDoorSlots())
+            if (Utils.canBeRedRoom(doorSlot)) level.MakeRedRoomDoor(gridIndex, doorSlot);
     }
 }
 const MomentuumEmperor: [CollectibleType, EntityType, int?, int?][] = [
@@ -150,6 +151,7 @@ export class MomentuumCards extends ModFeature {
     UseMomentuumCard(cardType: CardType, player: EntityPlayer, useFlags: BitFlags<UseFlag>) {
         let rng = player.GetCardRNG(cardType);
         let hasTarotCloth = player.HasCollectible(CollectibleType.TAROT_CLOTH);
+        let tarotCount = player.GetCollectibleNum(CollectibleType.TAROT_CLOTH);
         if (hasFlag(useFlags, UseFlag.CAR_BATTERY)) return;
         let entity: Entity;
         let room = game.GetRoom();
@@ -212,11 +214,17 @@ export class MomentuumCards extends ModFeature {
                 mapSetPlayer(v.room.Hierophant, player, true);
                 break;
             case ModEnums.CARD_MOMENTUUM_LOVERS:
-                let damage = player.GetHearts() - player.GetRottenHearts() - (player.GetSoulHearts() + player.GetBoneHearts() > 0 ? 0 : 1);
+                let isLost = isCharacter(player, PlayerType.LOST, PlayerType.LOST_B);
+                let damage;
+                if (isLost) damage = 6;
+                else damage = player.GetHearts() - player.GetRottenHearts() - (player.GetSoulHearts() + player.GetBoneHearts() > 0 ? 0 : 1);
                 if (damage <= 0) break;
-                player.TakeDamage(damage, addFlag(DamageFlag.RED_HEARTS, DamageFlag.IV_BAG, DamageFlag.NO_PENALTIES), EntityRef(player), 0);
-                player.AddHearts(player.GetMaxHearts() + player.GetBoneHearts() * 2);
-                Utils.defaultMapSetPlayerPred(v.level.Lovers, player, n => n + damage);
+                if (isLost) player.TakeDamage(1, DamageFlag.FAKE, EntityRef(player), 0);
+                else {
+                    player.TakeDamage(damage, addFlag(DamageFlag.RED_HEARTS, DamageFlag.IV_BAG, DamageFlag.NO_PENALTIES), EntityRef(player), 0);
+                    player.AddHearts(player.GetMaxHearts() + player.GetBoneHearts() * 2);
+                }
+                Utils.defaultMapSetPlayerPred(v.level.Lovers, player, n => n + damage * (targetCount + 1));
                 player.AddCacheFlags(addFlag(CacheFlag.DAMAGE, CacheFlag.SPEED));
                 player.EvaluateItems();
                 break;
@@ -451,8 +459,11 @@ export class MomentuumCards extends ModFeature {
     @Callback(ModCallback.ENTITY_TAKE_DMG, EntityType.PLAYER)
     CardsPlayerTakeDamage(entity: Entity, amount: float, damageFlags: BitFlags<DamageFlag>, source: EntityRef, countdownFrames: int): undefined | boolean {
         let player = entity.ToPlayer(); if (!player) return;
-        if (!v.level.Chariot.has(getPlayerIndex(player))) return;
-        if (getRandomInt(1, 10, player.GetCardRNG(ModEnums.CARD_MOMENTUUM_CHARIOT)) <= 3) player.UseActiveItem(player.HasCollectible(CollectibleType.TAROT_CLOTH) ? CollectibleType.WHITE_PONY : CollectibleType.PONY);
+        if (!mapHasPlayer(v.level.Chariot, player)) return;
+        if (getRandomInt(1, 10, player.GetCardRNG(ModEnums.CARD_MOMENTUUM_CHARIOT)) <= 3) {
+            player.UseActiveItem(player.HasCollectible(CollectibleType.TAROT_CLOTH) ? CollectibleType.WHITE_PONY : CollectibleType.PONY);
+            return false;
+        }
         return;
     }
 
@@ -462,7 +473,7 @@ export class MomentuumCards extends ModFeature {
         if (sourceEntity.Type == EntityType.FAMILIAR) return;
         let player = sourceEntity.SpawnerEntity?.ToPlayer();
         if (!player) return;
-        if (!v.room.Hierophant.has(getPlayerIndex(player))) return;
+        if (!mapHasPlayer(v.room.Hierophant, player)) return;
         if (getRandomInt(1, 3, player.GetCardRNG(ModEnums.CARD_MOMENTUUM_HIEROPHANT)) <= 2) player.AddBlueFlies(1, player.Position, undefined);
         return;
     }
