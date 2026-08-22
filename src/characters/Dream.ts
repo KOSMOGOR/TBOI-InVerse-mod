@@ -1,4 +1,4 @@
-import { CacheFlag, CollectibleType, ItemType, ModCallback, PickupVariant } from "isaac-typescript-definitions";
+import { CacheFlag, CollectibleType, ModCallback, PickupVariant } from "isaac-typescript-definitions";
 import { Callback, CallbackCustom, getPlayersOfType, getRandomInt, mapSetPlayer, ModCallbackCustom, ModFeature } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { MomentuumData } from "../items/Momentuum";

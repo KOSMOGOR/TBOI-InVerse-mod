@@ -1,11 +1,10 @@
-import { CacheFlag, CardType, CollectibleType, DamageFlag, EntityFlag, EntityType, ModCallback, UseFlag, PlayerItemAnimation, SoundEffect, GridRoom, PickupVariant, RoomType, DisplayFlag, RoomDescriptorFlag, GeminiVariant, BeastVariant, DingleVariant, GurglingVariant, ItemPoolType, TrinketType, GridEntityType, PoopGridEntityVariant, PlayerType, PickupPrice, BombSubType, DarkEsauSubType, HeartSubType, FamiliarVariant, ChubVariant, DukeOfFliesVariant, PeepVariant, LokiVariant, FistulaVariant, WidowVariant, DaddyLongLegsVariant, PinVariant, PolycephalusVariant } from "isaac-typescript-definitions";
-import { addFlag, anyPlayerHasCollectible, bitFlags, Callback, CallbackCustom, changeRoom, COLORS, DefaultMap, defaultMapGetPlayer, game, getBosses, getEntities, getEntityFromPtrHash, getPickups, getPlayerFromIndex, getPlayerIndex, getPlayers, getRandomArrayElement, getRandomArrayIndex, getRandomInt, getRandomVector, getRoomDescriptorReadOnly, getRoomGridIndex, getRooms, getUnusedDoorSlots, hasFlag, inRoomType, isCharacter, itemConfig, mapDeletePlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PickupIndex, repeat, sfxManager, smeltTrinket, spawn, spawnCollectible, spawnCollectibleFromPool, spawnHeart, spawnNPC, spawnPickup, teleport, type PlayerIndex } from "isaacscript-common";
+import { CacheFlag, CardType, CollectibleType, DamageFlag, EntityFlag, EntityType, ModCallback, UseFlag, PlayerItemAnimation, SoundEffect, GridRoom, PickupVariant, RoomType, DisplayFlag, RoomDescriptorFlag, GeminiVariant, BeastVariant, DingleVariant, GurglingVariant, ItemPoolType, TrinketType, GridEntityType, PoopGridEntityVariant, PlayerType, PickupPrice, BombSubType, DarkEsauSubType, HeartSubType, FamiliarVariant, ChubVariant, DukeOfFliesVariant, PeepVariant, LokiVariant, FistulaVariant, WidowVariant, DaddyLongLegsVariant, PinVariant, PolycephalusVariant, EffectVariant } from "isaac-typescript-definitions";
+import { addFlag, anyPlayerHasCollectible, bitFlags, Callback, CallbackCustom, COLORS, DefaultMap, defaultMapGetPlayer, game, getBosses, getEntities, getEntityFromPtrHash, getEntityID, getPickups, getPlayers, getPocketItems, getRandomArrayElement, getRandomArrayIndex, getRandomInt, getRandomVector, getRoomDescriptorReadOnly, getRoomGridIndex, getRooms, getUnusedDoorSlots, hasCard, hasFlag, inRoomType, isCharacter, itemConfig, mapDeletePlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PickupIndex, PocketItemType, repeat, setAddPlayer, setHasPlayer, sfxManager, smeltTrinket, spawn, spawnCollectible, spawnCollectibleFromPool, spawnEffect, spawnEntityID, spawnHeart, spawnNPC, spawnPickup, teleport, type EntityID, type PlayerIndex } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { Utils } from "../misc/Utils";
 import { InnateItems } from "../misc/InnateItems";
 import { TeegroData } from "../characters/Teegro";
 import { mod } from "../mod";
-import { CallbackOnGlowingHourglassRewind, OnGlowingHourglassRewind } from "../misc/AdditionalCallbacks";
 
 const v = {
     run: {
@@ -19,18 +18,18 @@ const v = {
             RemoveItems: new Array<PickupIndex>()
         },
         Hermit: false,
-        Hanged: new Set<PlayerIndex>(),
+        Hanged: new Array<{entityID: EntityID, price: int}>(),
         Devil: false,
         Moon: false,
         Sun: new Set<PtrHash>()
     },
     level: {
         Lovers: new DefaultMap<PlayerIndex, int>(0),
-        Chariot: new Map<PlayerIndex, boolean>(),
+        Chariot: new Set<PlayerIndex>(),
         World: false
     },
     room: {
-        Hierophant: new Map<PlayerIndex, boolean>(),
+        Hierophant: new Set<PlayerIndex>(),
         WheelOfFortune: new DefaultMap<PlayerIndex, {remainingUses: int, passedSinceLastUse: int}>(() => { return {remainingUses: 0, passedSinceLastUse: 0}; }),
         Stars: false
     }
@@ -145,6 +144,9 @@ export class MomentuumCards extends ModFeature {
             if (cacheFlag == CacheFlag.DAMAGE) player.Damage += val / 23 * val / 23 * 20;
             if (cacheFlag == CacheFlag.SPEED) player.MoveSpeed += val * 0.1;
         }
+        if (setHasPlayer(v.level.Chariot, player)) {
+            if (cacheFlag == CacheFlag.SPEED) player.MoveSpeed = 2;
+        }
     }
 
     @Callback(ModCallback.POST_USE_CARD)
@@ -196,8 +198,8 @@ export class MomentuumCards extends ModFeature {
                     selectedItemsIndexes.push(getRandomArrayIndex(MomentuumEmperor, rng, selectedItemsIndexes));
                 let spawnedPickupIndexes: PickupIndex[] = [];
                 let optionsIndex = Utils.getFreePickupOptionsIndex();
-                for (let ind of selectedItemsIndexes) {
-                    let emp = MomentuumEmperor[ind]; if (!emp) continue;
+                for (let itemInd of selectedItemsIndexes) {
+                    let emp = MomentuumEmperor[itemInd]; if (!emp) continue;
                     let item = emp[0] ?? CollectibleType.NULL;
                     if (item == CollectibleType.NULL) continue;
                     let entityPickup = spawnCollectible(item, room.FindFreePickupSpawnPosition(player.Position, 20), undefined);
@@ -211,7 +213,7 @@ export class MomentuumCards extends ModFeature {
                 };
                 break;
             case ModEnums.CARD_MOMENTUUM_HIEROPHANT:
-                mapSetPlayer(v.room.Hierophant, player, true);
+                setAddPlayer(v.room.Hierophant, player);
                 break;
             case ModEnums.CARD_MOMENTUUM_LOVERS:
                 let isLost = isCharacter(player, PlayerType.LOST, PlayerType.LOST_B);
@@ -229,9 +231,10 @@ export class MomentuumCards extends ModFeature {
                 player.EvaluateItems();
                 break;
             case ModEnums.CARD_MOMENTUUM_CHARIOT:
-                mapSetPlayer(v.level.Chariot, player, true);
-                InnateItems.AddItemForLevel(player, hasTarotCloth ? CollectibleType.WHITE_PONY : CollectibleType.PONY, false);
-                player.UseActiveItem(CollectibleType.PONY);
+                setAddPlayer(v.level.Chariot, player);
+                InnateItems.AddItemForLevel(player, CollectibleType.LEO);
+                player.AddCacheFlags(CacheFlag.SPEED);
+                player.EvaluateItems();
                 break;
             case ModEnums.CARD_MOMENTUUM_JUSTICE:
                 let mult = hasTarotCloth ? 2 : 1;
@@ -256,8 +259,18 @@ export class MomentuumCards extends ModFeature {
                 if (hasTarotCloth) player.UseActiveItem(CollectibleType.MEGA_MUSH);
                 break;
             case ModEnums.CARD_MOMENTUUM_HANGED:
-                let ind = getPlayerIndex(player);
-                v.run.Hanged.add(ind);
+                for (const pickup of getPickups().toSorted(
+                    // first - collectibles
+                    (a, b) => a.Variant == PickupVariant.COLLECTIBLE && b.Variant != PickupVariant.COLLECTIBLE ? -1 : 0
+                )) {
+                    if (v.run.Hanged.length >= 10) break;
+                    v.run.Hanged.push({
+                        entityID: getEntityID(pickup),
+                        price: pickup.Price
+                    });
+                    pickup.Remove();
+                }
+                if (hasFlag(useFlags, UseFlag.OWNED)) player.AddCard(ModEnums.CARD_MOMENTUUM_HANGED);
                 break;
             case ModEnums.CARD_MOMENTUUM_DEATH:
                 entity = spawnNPC(EntityType.BEAST, BeastVariant.ULTRA_DEATH, 0, game.GetRoom().GetCenterPos());
@@ -363,11 +376,6 @@ export class MomentuumCards extends ModFeature {
             });
             v.run.Emperor.RemoveItems = [];
         }
-        if (v.level.Chariot.size > 0) {
-            getPlayers().forEach(player => {
-                if (mapHasPlayer(v.level.Chariot, player)) mod.runNextGameFrame(() => player.UseActiveItem(player.HasCollectible(CollectibleType.TAROT_CLOTH) ? CollectibleType.WHITE_PONY : CollectibleType.PONY));
-            });
-        }
         if (v.run.Devil) {
             MomentuumDevil();
         }
@@ -388,6 +396,7 @@ export class MomentuumCards extends ModFeature {
 
     @CallbackCustom(ModCallbackCustom.POST_NEW_LEVEL_REORDERED)
     CardsNewLevel() {
+        let players = getPlayers();
         if (v.run.Fool) {
             v.run.Fool = false;
         }
@@ -397,6 +406,25 @@ export class MomentuumCards extends ModFeature {
             v.run.Hermit = false;
             let player = Isaac.GetPlayer();
             player.AddCoins(anyPlayerHasCollectible(CollectibleType.TAROT_CLOTH) ? -50 : -player.GetNumCoins());
+        }
+        if (v.run.Hanged.length > 0) {
+            for (const player of players) {
+                if (!hasCard(player, ModEnums.CARD_MOMENTUUM_HANGED)) continue;
+                for (const pid of getPocketItems(player)) {
+                    if (pid.type != PocketItemType.CARD || pid.subType != ModEnums.CARD_MOMENTUUM_HANGED) continue;
+                    player.SetCard(pid.slot, CardType.NULL);
+                    for (const pickup of v.run.Hanged) {
+                        let pos = game.GetRoom().FindFreePickupSpawnPosition(player.Position, 40);
+                        let pickupEntity = spawnEntityID(pickup.entityID, pos).ToPickup();
+                        if (pickupEntity) {
+                            pickupEntity.AutoUpdatePrice = false;
+                            pickupEntity.Price = pickup.price;
+                        }
+                    }
+                    v.run.Hanged.splice(0);
+                }
+                break;
+            }
         }
         if (v.run.Sun.size > 0) {
             v.run.Sun.forEach(ptrHash => getEntityFromPtrHash(ptrHash)?.Remove());
@@ -459,9 +487,12 @@ export class MomentuumCards extends ModFeature {
     @Callback(ModCallback.ENTITY_TAKE_DMG, EntityType.PLAYER)
     CardsPlayerTakeDamage(entity: Entity, amount: float, damageFlags: BitFlags<DamageFlag>, source: EntityRef, countdownFrames: int): undefined | boolean {
         let player = entity.ToPlayer(); if (!player) return;
-        if (!mapHasPlayer(v.level.Chariot, player)) return;
-        if (getRandomInt(1, 10, player.GetCardRNG(ModEnums.CARD_MOMENTUUM_CHARIOT)) <= 3) {
-            player.UseActiveItem(player.HasCollectible(CollectibleType.TAROT_CLOTH) ? CollectibleType.WHITE_PONY : CollectibleType.PONY);
+        if (!setHasPlayer(v.level.Chariot, player)) return;
+        if (hasFlag(damageFlags, DamageFlag.NO_MODIFIERS) || hasFlag(damageFlags, DamageFlag.FAKE)) return;
+        let chanceToBlockDamage = player.HasCollectible(CollectibleType.TAROT_CLOTH) ? 3 : 2;
+        if (getRandomInt(1, 4, player.GetCardRNG(ModEnums.CARD_MOMENTUUM_CHARIOT)) <= chanceToBlockDamage) {
+            player.TakeDamage(1, DamageFlag.FAKE, EntityRef(player), 0);
+            spawnEffect(EffectVariant.SHOCKWAVE, 0, player.Position);
             return false;
         }
         return;
@@ -473,7 +504,7 @@ export class MomentuumCards extends ModFeature {
         if (sourceEntity.Type == EntityType.FAMILIAR) return;
         let player = sourceEntity.SpawnerEntity?.ToPlayer();
         if (!player) return;
-        if (!mapHasPlayer(v.room.Hierophant, player)) return;
+        if (!setHasPlayer(v.room.Hierophant, player)) return;
         if (getRandomInt(1, 3, player.GetCardRNG(ModEnums.CARD_MOMENTUUM_HIEROPHANT)) <= 2) player.AddBlueFlies(1, player.Position, undefined);
         return;
     }
@@ -485,7 +516,7 @@ export class MomentuumCards extends ModFeature {
         let player = sourceEntity.SpawnerEntity?.ToPlayer();
         if (!player) return;
         let hasTarot = player.HasCollectible(CollectibleType.TAROT_CLOTH);
-        if (mapHasPlayer(v.room.Hierophant, player) && getRandomInt(1, 10, player.GetCardRNG(ModEnums.CARD_MOMENTUUM_HIEROPHANT)) <= (hasTarot ? 2 : 1)) {
+        if (setHasPlayer(v.room.Hierophant, player) && getRandomInt(1, 10, player.GetCardRNG(ModEnums.CARD_MOMENTUUM_HIEROPHANT)) <= (hasTarot ? 2 : 1)) {
             let heart = spawnHeart(HeartSubType.HALF_SOUL, entity.Position);
             heart.Timeout = (hasTarot ? 2 : 1.5) * 30;
             heart.Velocity = getRandomVector(undefined).Resized(5);
@@ -502,30 +533,6 @@ export class MomentuumCards extends ModFeature {
                 v.run.Emperor.ActiveRoom = undefined;
                 v.run.Emperor.RemoveItems = [];
             }
-        }
-    }
-
-    @CallbackCustom(ModCallbackCustom.POST_PLAYER_UPDATE_REORDERED)
-    HangedRevivePlayer(player: EntityPlayer) {
-        let ind = getPlayerIndex(player);
-        if (v.run.Hanged.has(ind) && player.IsDead()) {
-            OnGlowingHourglassRewind.setData("Hanged", ind);
-            player.UseActiveItem(CollectibleType.GLOWING_HOUR_GLASS, UseFlag.NO_ANIMATION);
-        }
-    }
-
-    @CallbackOnGlowingHourglassRewind(false)
-    GlowingHourglassRewind() {
-        let hangedData = OnGlowingHourglassRewind.getData("Hanged")
-        if (hangedData) {
-            OnGlowingHourglassRewind.deleteData("Hanged");
-            let player = getPlayerFromIndex(hangedData as PlayerIndex);
-            print(player?.GetBrokenHearts())
-            if (player) player.AddBrokenHearts(1);
-            let roomInd = getRoomGridIndex()
-            changeRoom(GridRoom.ERROR);
-            changeRoom(roomInd);
-            if (player) player.AddBrokenHearts(1);
         }
     }
 }
