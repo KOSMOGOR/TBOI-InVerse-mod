@@ -107,7 +107,7 @@ type TargetEntity = Entity | undefined;
 type TargetGridEntity = GridEntity | undefined;
 type TargetDoorSlot = {doorSlot: DoorSlot, Position: Vector} | undefined;
 type TargetInt = int | undefined;
-type TargetEmpty = object | undefined;
+type TargetEmpty = {} | undefined;
 const MomentuumSkills: MomentuumSkill<any>[] = [
     // new MomentuumSkill<>(
     //     (player) => {
@@ -179,6 +179,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
                     spawnEffect(EffectVariant.POOF_1, 0, pickup2.Position);
                 }
             });
+            else pickup.Remove();
             player.AddCacheFlags(addFlag(CacheFlag.ALL));
             player.EvaluateItems();
         },
@@ -222,6 +223,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
                         spawnEffect(EffectVariant.POOF_1, 0, pickup2.Position);
                     }
                 });
+                else pickup.Remove();
             } else if (typeof target == "object" && player.HasCollectible(CollectibleType.SHARP_PLUG)) {
                 player.TakeDamage(2, addFlag(DamageFlag.RED_HEARTS, DamageFlag.ISSAC_HEART, DamageFlag.INVINCIBLE, DamageFlag.IV_BAG, DamageFlag.NO_MODIFIERS), EntityRef(player), 30);
                 charges = 2;
@@ -335,6 +337,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
     ).setName("Pill"),
     new MomentuumSkill<TargetEmpty>(
         () => {
+            if (game.IsGreedMode()) return undefined;
             let roomType = game.GetRoom().GetType();
             return roomType == RoomType.ANGEL && !v.level.MomentuumFixateUsed ? {} : undefined;
         },
@@ -346,6 +349,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
     ).setName("FixateAngel"),
     new MomentuumSkill<TargetEmpty>(
         () => {
+            if (game.IsGreedMode()) return undefined;
             let roomType = game.GetRoom().GetType();
             return roomType == RoomType.DEVIL && !v.level.MomentuumFixateUsed ? {} : undefined;
         },

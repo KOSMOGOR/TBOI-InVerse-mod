@@ -266,9 +266,10 @@ function LockItemSprite(pickup: EntityPickup) {
         pickup.AutoUpdatePrice = false;
         pickup.Price = HunterPrice;
         let price = spawnEffect(HunterPriceEffectVariant, 0, pickup.Position);
+        price.GetSprite().SetFrame("Full", math.floor(pickupInfo.cost / 4) - 1);
         price.SpriteOffset = Vector(0, 10);
         price.DepthOffset = 10;
-        price.GetSprite().SetFrame("Full", math.floor(pickupInfo.cost / 4) - 1);
+        price.FollowParent(pickup);
         lockedEffects.set(ind, [price]);
     }
 }
@@ -280,7 +281,8 @@ function UnlockItemSprite(pickup: EntityPickup) {
     else {
         if (pickupInfo.canTouch) effects.forEach(effect => {
             let sprite = effect.GetSprite();
-            sprite.Play(sprite.GetAnimation() + "Unlocking", true)
+            sprite.Play(sprite.GetAnimation() + "Unlocking", true);
+            sfxManager.Play(SoundEffect.CHAIN_BREAK);
         });
         else effects.forEach(effect => effect.Remove());
     }
@@ -431,6 +433,12 @@ export class Teegro extends ModFeature {
             AddHunterKeyShards(-pickupInfo.cost);
             pickupInfo.locked = false;
             UnlockItemSprite(pickup);
+            if (pickup.OptionsPickupIndex != 0) {
+                for (const pickup2 of getPickups()) {
+                    if (pickup2.OptionsPickupIndex == pickup.OptionsPickupIndex && !Utils.EqualPtrHash(pickup2, pickup))
+                        UnlockItemSprite(pickup2);
+                }
+            }
         }
         // Not enough shards - default behaviour
         return !pickupInfo.canTouch;
@@ -460,7 +468,10 @@ export class Teegro extends ModFeature {
     @Callback(ModCallback.POST_EFFECT_UPDATE)
     RemoveUselessLockSprites(effect: EntityEffect) {
         if (![ItemChainsVariant, HunterPriceEffectVariant].includes(effect.Variant)) return;
-        if (![...lockedEffects.values()].flat().some(effect1 => Utils.EqualPtrHash(effect1, effect))) effect.Remove();
+        // Works with restock, void, any kind of collectible removal
+        if (effect.Parent == null || effect.Parent.IsDead()) return effect.Remove();
+        // Useless?
+        if (![...lockedEffects.values()].flat().some(effect1 => Utils.EqualPtrHash(effect1, effect))) return effect.Remove();
     }
 
     @CallbackCustom(ModCallbackCustom.POST_PICKUP_INIT_LATE)
@@ -557,6 +568,7 @@ export class Teegro extends ModFeature {
             v.level.pickupsRemoveOnNewRoom.add(ind1);
             v.level.hunterChestRewards.set(ind1, []);
         }
+        if (pickup.Price == PickupPrice.SPIKES && inRoomType(RoomType.DEVIL)) game.AddDevilRoomDeal();
         pickup.Remove();
         return;
     }

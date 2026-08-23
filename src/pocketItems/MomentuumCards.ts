@@ -24,12 +24,12 @@ const v = {
         Sun: new Set<PtrHash>()
     },
     level: {
+        Hierophant: new Set<PlayerIndex>(),
         Lovers: new DefaultMap<PlayerIndex, int>(0),
         Chariot: new Set<PlayerIndex>(),
         World: false
     },
     room: {
-        Hierophant: new Set<PlayerIndex>(),
         WheelOfFortune: new DefaultMap<PlayerIndex, {remainingUses: int, passedSinceLastUse: int}>(() => { return {remainingUses: 0, passedSinceLastUse: 0}; }),
         Stars: false
     }
@@ -213,7 +213,7 @@ export class MomentuumCards extends ModFeature {
                 };
                 break;
             case ModEnums.CARD_MOMENTUUM_HIEROPHANT:
-                setAddPlayer(v.room.Hierophant, player);
+                setAddPlayer(v.level.Hierophant, player);
                 break;
             case ModEnums.CARD_MOMENTUUM_LOVERS:
                 let isLost = isCharacter(player, PlayerType.LOST, PlayerType.LOST_B);
@@ -504,7 +504,7 @@ export class MomentuumCards extends ModFeature {
         if (sourceEntity.Type == EntityType.FAMILIAR) return;
         let player = sourceEntity.SpawnerEntity?.ToPlayer();
         if (!player) return;
-        if (!setHasPlayer(v.room.Hierophant, player)) return;
+        if (!setHasPlayer(v.level.Hierophant, player)) return;
         if (getRandomInt(1, 3, player.GetCardRNG(ModEnums.CARD_MOMENTUUM_HIEROPHANT)) <= 2) player.AddBlueFlies(1, player.Position, undefined);
         return;
     }
@@ -516,7 +516,7 @@ export class MomentuumCards extends ModFeature {
         let player = sourceEntity.SpawnerEntity?.ToPlayer();
         if (!player) return;
         let hasTarot = player.HasCollectible(CollectibleType.TAROT_CLOTH);
-        if (setHasPlayer(v.room.Hierophant, player) && getRandomInt(1, 10, player.GetCardRNG(ModEnums.CARD_MOMENTUUM_HIEROPHANT)) <= (hasTarot ? 2 : 1)) {
+        if (setHasPlayer(v.level.Hierophant, player) && getRandomInt(1, 10, player.GetCardRNG(ModEnums.CARD_MOMENTUUM_HIEROPHANT)) <= (hasTarot ? 2 : 1)) {
             let heart = spawnHeart(HeartSubType.HALF_SOUL, entity.Position);
             heart.Timeout = (hasTarot ? 2 : 1.5) * 30;
             heart.Velocity = getRandomVector(undefined).Resized(5);
