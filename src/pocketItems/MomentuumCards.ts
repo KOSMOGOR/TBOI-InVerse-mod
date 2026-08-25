@@ -1,10 +1,13 @@
 import { CacheFlag, CardType, CollectibleType, DamageFlag, EntityFlag, EntityType, ModCallback, UseFlag, PlayerItemAnimation, SoundEffect, GridRoom, PickupVariant, RoomType, DisplayFlag, RoomDescriptorFlag, GeminiVariant, BeastVariant, DingleVariant, GurglingVariant, ItemPoolType, TrinketType, GridEntityType, PoopGridEntityVariant, PlayerType, PickupPrice, BombSubType, DarkEsauSubType, HeartSubType, FamiliarVariant, ChubVariant, DukeOfFliesVariant, PeepVariant, LokiVariant, FistulaVariant, WidowVariant, DaddyLongLegsVariant, PinVariant, PolycephalusVariant, EffectVariant } from "isaac-typescript-definitions";
-import { addFlag, anyPlayerHasCollectible, bitFlags, Callback, CallbackCustom, COLORS, DefaultMap, defaultMapGetPlayer, game, getBosses, getEntities, getEntityFromPtrHash, getEntityID, getPickups, getPlayers, getPocketItems, getRandomArrayElement, getRandomArrayIndex, getRandomInt, getRandomVector, getRoomDescriptorReadOnly, getRoomGridIndex, getRooms, getUnusedDoorSlots, hasCard, hasFlag, inRoomType, isCharacter, itemConfig, mapDeletePlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PickupIndex, PocketItemType, repeat, setAddPlayer, setHasPlayer, sfxManager, smeltTrinket, spawn, spawnCollectible, spawnCollectibleFromPool, spawnEffect, spawnEntityID, spawnHeart, spawnNPC, spawnPickup, teleport, type EntityID, type PlayerIndex } from "isaacscript-common";
+import { addFlag, anyPlayerHasCollectible, bitFlags, Callback, CallbackCustom, COLORS, DefaultMap, defaultMapGetPlayer, game, getBosses, getEntities, getEntityFromPtrHash, getEntityID, getPickups, getPlayers, getPocketItems, getRandomArrayElement, getRandomArrayIndex, getRandomFloat, getRandomInt, getRandomVector, getRoomDescriptorReadOnly, getRoomGridIndex, getRooms, getUnusedDoorSlots, hasCard, hasFlag, inRoomType, isCardPickup, isCharacter, itemConfig, logFlags, mapDeletePlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PickupIndex, PocketItemType, repeat, setAddPlayer, setHasPlayer, sfxManager, smeltTrinket, spawn, spawnCollectible, spawnCollectibleFromPool, spawnEffect, spawnEntityID, spawnHeart, spawnNPC, spawnPickup, teleport, type EntityID, type PlayerIndex } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { Utils } from "../misc/Utils";
 import { InnateItems } from "../misc/InnateItems";
 import { TeegroData } from "../characters/Teegro";
 import { mod } from "../mod";
+import { Unlocks } from "../misc/Unlocks";
+
+Unlocks.AddLockedCardRange(ModEnums.CARD_MOMENTUUM_FOOL, ModEnums.CARD_MOMENTUUM_WORLD);
 
 const v = {
     run: {
@@ -31,6 +34,7 @@ const v = {
     },
     room: {
         WheelOfFortune: new DefaultMap<PlayerIndex, {remainingUses: int, passedSinceLastUse: int}>(() => { return {remainingUses: 0, passedSinceLastUse: 0}; }),
+        Death: false,
         Stars: false
     }
 }
@@ -153,7 +157,6 @@ export class MomentuumCards extends ModFeature {
     UseMomentuumCard(cardType: CardType, player: EntityPlayer, useFlags: BitFlags<UseFlag>) {
         let rng = player.GetCardRNG(cardType);
         let hasTarotCloth = player.HasCollectible(CollectibleType.TAROT_CLOTH);
-        let tarotCount = player.GetCollectibleNum(CollectibleType.TAROT_CLOTH);
         if (hasFlag(useFlags, UseFlag.CAR_BATTERY)) return;
         let entity: Entity;
         let room = game.GetRoom();
@@ -276,6 +279,7 @@ export class MomentuumCards extends ModFeature {
                 entity = spawnNPC(EntityType.BEAST, BeastVariant.ULTRA_DEATH, 0, game.GetRoom().GetCenterPos());
                 entity.AddEntityFlags(addFlag(EntityFlag.CHARM, EntityFlag.FRIENDLY));
                 sfxManager.Play(SoundEffect.SATAN_GROW);
+                if (hasTarotCloth) v.room.Death = true;
                 break;
             case ModEnums.CARD_MOMENTUUM_TEMPERANCE:
                 spawnCollectible(CollectibleType.BREAKFAST, room.FindFreePickupSpawnPosition(player.Position, 20), undefined);
@@ -336,6 +340,14 @@ export class MomentuumCards extends ModFeature {
                 MomentuumWorld();
                 break;
         }
+    }
+
+    @Callback(ModCallback.POST_PICKUP_INIT)
+    CardsCustomSprite(pickup: EntityPickup) {
+        if (!isCardPickup(pickup) || pickup.SubType < ModEnums.CARD_MOMENTUUM_FOOL || pickup.SubType > ModEnums.CARD_MOMENTUUM_WORLD) return;
+        let sprite = pickup.GetSprite();
+        sprite.ReplaceSpritesheet(0, "gfx/items/pickups/Momentuum_Card.png");
+        sprite.LoadGraphics();
     }
 
     @CallbackCustom(ModCallbackCustom.POST_PLAYER_UPDATE_REORDERED)
@@ -434,6 +446,9 @@ export class MomentuumCards extends ModFeature {
 
     @CallbackCustom(ModCallbackCustom.POST_ROOM_CLEAR_CHANGED, true)
     CardsRoomCleared() {
+        if (v.room.Death) {
+            Isaac.GetPlayer().UseActiveItem(CollectibleType.NECRONOMICON, UseFlag.NO_ANIMATION);
+        }
         if (v.level.World) {
             if (anyPlayerHasCollectible(CollectibleType.TAROT_CLOTH) && hasFlag(getRoomDescriptorReadOnly().Flags, RoomDescriptorFlag.RED_ROOM) && getRandomInt(1, 5, Isaac.GetPlayer().GetCardRNG(ModEnums.CARD_MOMENTUUM_WORLD)) == 1) {
                 let level = game.GetLevel();
@@ -487,10 +502,12 @@ export class MomentuumCards extends ModFeature {
     @Callback(ModCallback.ENTITY_TAKE_DMG, EntityType.PLAYER)
     CardsPlayerTakeDamage(entity: Entity, amount: float, damageFlags: BitFlags<DamageFlag>, source: EntityRef, countdownFrames: int): undefined | boolean {
         let player = entity.ToPlayer(); if (!player) return;
+        print(source.Entity, source.Entity?.ToNPC());
         if (!setHasPlayer(v.level.Chariot, player)) return;
-        if (hasFlag(damageFlags, DamageFlag.NO_MODIFIERS) || hasFlag(damageFlags, DamageFlag.FAKE)) return;
-        let chanceToBlockDamage = player.HasCollectible(CollectibleType.TAROT_CLOTH) ? 3 : 2;
-        if (getRandomInt(1, 4, player.GetCardRNG(ModEnums.CARD_MOMENTUUM_CHARIOT)) <= chanceToBlockDamage) {
+        if ([DamageFlag.INVINCIBLE, DamageFlag.FAKE, DamageFlag.NO_MODIFIERS].some(flag => hasFlag(damageFlags, flag))) return;
+        let chanceToBlockDamage = source.Entity?.ToNPC() ? .5 : .25; // higher chance for contact damage
+        if (player.HasCollectible(CollectibleType.TAROT_CLOTH)) chanceToBlockDamage = 2 * chanceToBlockDamage - chanceToBlockDamage * chanceToBlockDamage;
+        if (getRandomFloat(0, 1, player.GetCardRNG(ModEnums.CARD_MOMENTUUM_CHARIOT)) <= chanceToBlockDamage) {
             player.TakeDamage(1, DamageFlag.FAKE, EntityRef(player), 0);
             spawnEffect(EffectVariant.SHOCKWAVE, 0, player.Position);
             return false;

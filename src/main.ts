@@ -7,11 +7,12 @@ import { DreamsHandbag } from "./trinkets/DeamsBag";
 import { MomentuumCards } from "./pocketItems/MomentuumCards";
 import { Teegro } from "./characters/Teegro";
 import { PostPlayerRenderAbove } from "./misc/AdditionalCallbacks";
+import { Unlocks } from "./misc/Unlocks";
 
 
 export function main(): void {
     initModFeatures(mod, [PostPlayerRenderAbove]);
-    initModFeatures(mod, [InnateItems]);
+    initModFeatures(mod, [InnateItems, Unlocks]);
     initModFeatures(mod, [Dream, Momentuum, MomentuumCards]);
     // tainted Dream will be here
     initModFeatures(mod, [DreamsHandbag]);

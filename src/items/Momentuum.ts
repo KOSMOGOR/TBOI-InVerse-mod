@@ -4,6 +4,7 @@ import { ModEnums } from "../ModEnums";
 import { Utils } from "../misc/Utils";
 import { InnateItems } from "../misc/InnateItems";
 import { CallbackPostPlayerRenderAbove } from "../misc/AdditionalCallbacks";
+import { Unlocks } from "../misc/Unlocks";
 
 // #region Consts
 
@@ -319,7 +320,10 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
             getPocketItems(player).forEach(pid => {
                 if (pid.type != PocketItemType.CARD) return;
                 let momentuumCard = getMomentuumCardFromRegular(pid.subType);
-                if (momentuumCard) player.SetCard(pid.slot, momentuumCard);
+                if (momentuumCard) {
+                    player.SetCard(pid.slot, momentuumCard);
+                    Unlocks.UnlockCard(momentuumCard);
+                }
             });
         },
         () => 4

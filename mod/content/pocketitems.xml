@@ -11,7 +11,7 @@
 	<card type="tarot" pickup="1" name="Momentuum: IX - The Hermit" description="I shall become back my money." hud="momentuum_hermit" announcer="377" announcerdelay="60" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: X - Wheel of Fortune" description="I shall win in any odds." hud="momentuum_wheel" announcer="391" announcerdelay="60" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: XI - Strength" description="I shall become the strongest" hud="momentuum_strength" announcer="365" mimiccharge="12" />
-	<card type="tarot" pickup="1" name="Momentuum: XII - The Hanged Man" description="I shall try again and again and again." hud="momentuum_hanged" announcer="376" mimiccharge="12" />
+	<card type="tarot" pickup="1" name="Momentuum: XII - The Hanged Man" description="I shall preserve everything I've got." hud="momentuum_hanged" announcer="376" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: XIII - Death" description="I shall become Nihility, the end of all" hud="momentuum_death" announcer="337" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: XIV - Temperance" description="I would really like an apple right now." hud="momentuum_temperance" announcer="370" announcerdelay="60" mimiccharge="12" />
 	<card type="tarot" pickup="1" name="Momentuum: XV - The Devil" description="I shall find joy in sin." hud="momentuum_devil" announcer="372" announcerdelay="40" mimiccharge="12" />

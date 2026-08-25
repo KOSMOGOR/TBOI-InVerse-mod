@@ -23,9 +23,12 @@ const AlphaChangeSpeed = 0.5 / 30;
 function CollectHunterPickup(this: void, pickup: EntityPickup, player: EntityPlayer) {
     if (pickup.Price !== undefined) {
         if (pickup.Price > 0) player.AddCoins(-pickup.Price);
+
     }
-    AddHunterKeyShards(HunterKeyInfo[pickup.SubType]?.Value ?? 0);
+    let value = HunterKeyInfo[pickup.SubType]?.Value ?? 0;
+    AddHunterKeyShards(value);
     sfxManager.Play(SoundEffect.BONE_HEART);
+    if (pickup.Price == PickupPrice.SPIKES && inRoomType(RoomType.DEVIL) && value >= 4) game.AddDevilRoomDeal();
 }
 function CollisionHunterPickup(this: void, pickup: EntityPickup, player: EntityPlayer) {
     if (!pickup.Price) return;
