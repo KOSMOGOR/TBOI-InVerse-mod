@@ -4,10 +4,11 @@ export class ModEnums {
     // static PLAYER_DREAMBBODY = Isaac.GetPlayerTypeByName("DreamBBody", true);
     static PLAYER_TEEGRO = Isaac.GetPlayerTypeByName("Teegro");
 
-    static COLLECTIBLE_DREAMS_DREAM_BOOK = Isaac.GetItemIdByName("Dream's Dream Book");
+    // static COLLECTIBLE_DREAMS_DREAM_BOOK = Isaac.GetItemIdByName("Dream's Dream Book");
     static COLLECTIBLE_MOMENTUUM = Isaac.GetItemIdByName("Momentuum");
 
     static TRINKET_DREAMSHANDBAG = Isaac.GetTrinketIdByName("Dream's Handbag");
+    static TRINKET_ACE_OF_HISTORY = Isaac.GetTrinketIdByName("Ace of History");
 
     static CARD_MOMENTUUM_FOOL = Isaac.GetCardIdByName("momentuum_fool");
     static CARD_MOMENTUUM_MAGICIAN = Isaac.GetCardIdByName("momentuum_magician");

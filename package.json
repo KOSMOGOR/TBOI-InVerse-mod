@@ -20,14 +20,13 @@
     "update": "isaacscript update"
   },
   "dependencies": {
-    "isaac-typescript-definitions": "43.0.6",
-    "isaacscript-common": "^87.9.6"
+    "isaac-typescript-definitions": "43.0.8",
+    "isaacscript-common": "^87.10.2"
   },
   "devDependencies": {
-    "complete-node": "16.4.0",
-    "isaacscript": "6.0.2",
-    "isaacscript-lint": "7.3.2",
-    "typescript": "5.9.3",
-    "typescript-to-lua": "1.34.0"
+    "isaacscript": "6.0.14",
+    "isaacscript-lint": "8.1.0",
+    "typescript": "6.0.2",
+    "typescript-to-lua": "1.37.1"
   }
 }

@@ -240,13 +240,12 @@ let framesAfterPickupKey = 0;
 
 function GetHunterPriceFromRegular(price: int) {
     if (price > 0) price = getAdjustedPrice(price);
-    if ([PickupPrice.TWO_HEARTS, PickupPrice.THREE_SOUL_HEARTS, PickupPrice.ONE_HEART_AND_TWO_SOUL_HEARTS, PickupPrice.TWO_SOUL_HEARTS, PickupPrice.ONE_HEART_AND_ONE_SOUL_HEART].includes(price) || price >= 25) {
+    if ([PickupPrice.TWO_HEARTS, PickupPrice.THREE_SOUL_HEARTS, PickupPrice.ONE_HEART_AND_TWO_SOUL_HEARTS, PickupPrice.TWO_SOUL_HEARTS, PickupPrice.ONE_HEART_AND_ONE_SOUL_HEART].includes(price) || price >= 25)
         return 12;
-    } else if ([PickupPrice.ONE_HEART, PickupPrice.ONE_SOUL_HEART].includes(price) || price >= 15) {
+    else if ([PickupPrice.ONE_HEART, PickupPrice.ONE_SOUL_HEART].includes(price) || price >= 15)
         return 8
-    } else if ([PickupPrice.DEVIL_SACRIFICE_SPIKES, HunterPrice].includes(price) || price > 0) {
+    else if ([PickupPrice.DEVIL_SACRIFICE_SPIKES, HunterPrice].includes(price) || price > 0)
         return 4;
-    }
     return 4;
 }
 function LockItemSprite(pickup: EntityPickup) {
