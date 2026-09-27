@@ -1,4 +1,4 @@
-import { anyPlayerHasCollectible, Callback, CallbackCustom, clamp, copyColor, copyKColor, DEFAULT_ITEM_POOL_TYPE, DefaultMap, defaultMapGetPlayer, game, getAdjustedPrice, getCharacters, getEffects, getGoldenTrinketType, getPickups, getPlayersOfType, getRandomArrayElement, getRandomFromWeightedArray, getRandomInt, getRandomVector, getRoomDescriptorReadOnly, getRoomItemPoolType, hasCurse, hasFlag, inRoomType, iRange, isActionPressedOnAnyInput, isChest, itemConfig, K_COLORS, ModCallbackCustom, ModFeature, newRNG, onStage, repeat, sfxManager, spawnCollectibleFromPool, spawnEffect, spawnPickup, vectorEquals, VectorZero, type PickupIndex, type PlayerIndex } from "isaacscript-common";
+import { anyPlayerHasCollectible, Callback, CallbackCustom, clamp, copyColor, copyKColor, DEFAULT_ITEM_POOL_TYPE, DefaultMap, defaultMapGetPlayer, game, getAdjustedPrice, getCharacters, getEffects, getGoldenTrinketType, getPickups, getPlayersOfType, getRandomArrayElement, getRandomFromWeightedArray, getRandomInt, getRandomVector, getRoomDescriptorReadOnly, getRoomItemPoolType, hasCurse, hasFlag, inMineShaft, inRoomType, iRange, isActionPressedOnAnyInput, isChest, itemConfig, K_COLORS, ModCallbackCustom, ModFeature, newRNG, onStage, repeat, sfxManager, spawnCollectibleFromPool, spawnEffect, spawnPickup, vectorEquals, VectorZero, type PickupIndex, type PlayerIndex } from "isaacscript-common";
 import { mod } from "../mod";
 import { BombSubType, ButtonAction, CacheFlag, CardType, CoinSubType, CollectibleType, DamageFlag, EffectVariant, EntityCollisionClass, EntityFlag, EntityType, GridRoom, HeartSubType, ItemConfigTag, KeySubType, LevelCurse, LevelStage, ModCallback, PickupPrice, PickupVariant, RoomType, SoundEffect, TrinketType } from "isaac-typescript-definitions";
 import { ModEnums } from "../ModEnums";
@@ -370,8 +370,8 @@ export class Teegro extends ModFeature {
     LockItemOnInit(pickup: EntityPickup) {
         let ind = mod.getPickupIndex(pickup);
         let pickupInfo = v.level.pickupsInfo.get(ind);
-        // Unlocked - skip
-        if (pickupInfo?.locked == false) return;
+        // Unlocked or null - skip
+        if (pickupInfo?.locked == false || pickup.SubType == CollectibleType.NULL) return;
         // "Free" price - skip
         if ([PickupPrice.YOUR_SOUL, PickupPrice.FREE].includes(pickup.Price)) return;
         // No Teegro - mark as unlocked
@@ -392,7 +392,7 @@ export class Teegro extends ModFeature {
         }
         // Didn't check or price returned to normal - lock
         else if (!pickupInfo || pickup.Price != HunterPrice && pickup.Price != 0) {
-            if (itemConfig.GetCollectible(pickup.SubType)?.HasTags(ItemConfigTag.QUEST) || inRoomType(RoomType.BOSS) || pickup.Price == PickupPrice.YOUR_SOUL) return;
+            if (itemConfig.GetCollectible(pickup.SubType)?.HasTags(ItemConfigTag.QUEST) || inRoomType(RoomType.BOSS)) return;
             let canTouch = pickup.Price == 0;
             let wait = canTouch ? 15 : 0;
             pickupInfo = {
@@ -479,6 +479,7 @@ export class Teegro extends ModFeature {
     @CallbackCustom(ModCallbackCustom.POST_PICKUP_INIT_LATE)
     SpawnHunterKeys(pickup: EntityPickup) {
         if (!getCharacters().includes(ModEnums.PLAYER_TEEGRO)) return;
+        if (inMineShaft()) return;
         if (pickup.Variant == PickupVariant.COLLECTIBLE) return;
         let ind = mod.getPickupIndex(pickup);
         if (v.level.checkedPickups.has(ind)) return;

@@ -40,7 +40,8 @@ export class Dream extends ModFeature {
     RerollItemToMomentuum(pickup: EntityPickup, variant: PickupVariant, subType: int) : [pickupVariant: PickupVariant, subType: int] | undefined {
         if (variant != PickupVariant.COLLECTIBLE || subType == ModEnums.COLLECTIBLE_MOMENTUUM) return;
         let dreamsWithBirthright = getPlayersOfType(ModEnums.PLAYER_DREAM).filter(player => player.HasCollectible(CollectibleType.BIRTHRIGHT));
-        if (dreamsWithBirthright.length > 0 && getRandomInt(1, 100, dreamsWithBirthright[0]?.GetCollectibleRNG(CollectibleType.BIRTHRIGHT)) <= 3) return [PickupVariant.COLLECTIBLE, ModEnums.COLLECTIBLE_MOMENTUUM];
+        let chance = 3 * dreamsWithBirthright.length;
+        if (dreamsWithBirthright.length > 0 && getRandomInt(1, 100, dreamsWithBirthright[0]?.GetCollectibleRNG(CollectibleType.BIRTHRIGHT)) <= chance) return [PickupVariant.COLLECTIBLE, ModEnums.COLLECTIBLE_MOMENTUUM];
         return;
     }
 }

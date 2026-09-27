@@ -11,7 +11,7 @@ Unlocks.AddLockedCardRange(ModEnums.CARD_MOMENTUUM_FOOL, ModEnums.CARD_MOMENTUUM
 
 const v = {
     run: {
-        Fool: false,
+        Fool: 0,
         FoolRoomTime: 0,
         Priestess: false,
         Empress: new DefaultMap<PlayerIndex, int>(0),
@@ -172,7 +172,7 @@ export class MomentuumCards extends ModFeature {
         let room = game.GetRoom();
         switch (cardType) {
             case ModEnums.CARD_MOMENTUUM_FOOL:
-                v.run.Fool = true;
+                v.run.Fool = math.max(hasTarotCloth ? 2 : 1, v.run.Fool);
                 player.AddNullCostume(ClownHairCostume);
                 // musicManager.Crossfade(ClownMusic, 0.1);
                 break
@@ -371,6 +371,7 @@ export class MomentuumCards extends ModFeature {
                     Utils.defaultMapSetPlayerPred(v.level.Lovers, player, n => n + damage * (player.GetCollectibleNum(CollectibleType.TAROT_CLOTH) + 1));
                     player.AddCacheFlags(addFlag(CacheFlag.DAMAGE, CacheFlag.SPEED));
                     player.EvaluateItems();
+                    sfxManager.Play(SoundEffect.MEATY_DEATHS);
                 }
             }
             if (time > 80) mapDeletePlayer(v.level.LoversTimers, player);
@@ -444,8 +445,9 @@ export class MomentuumCards extends ModFeature {
     @CallbackCustom(ModCallbackCustom.POST_NEW_LEVEL_REORDERED)
     CardsNewLevel() {
         let players = getPlayers();
-        if (v.run.Fool) {
-            v.run.Fool = false;
+        if (v.run.Fool != 0) {
+            v.run.Fool = 0;
+            getPlayers().forEach(player => player.TryRemoveNullCostume(ClownHairCostume));
         }
         v.run.Emperor.ActiveRoom = undefined;
         v.run.Emperor.RemoveItems = [];
@@ -503,7 +505,7 @@ export class MomentuumCards extends ModFeature {
 
     @CallbackCustom(ModCallbackCustom.POST_GRID_ENTITY_INIT)
     CardsOnGridEntityInit(gridEntity: GridEntity) {
-        if (v.run.Fool) {
+        if (v.run.Fool != 0) {
             let room = game.GetRoom();
             if (gridEntity.GetType() == GridEntityType.POOP && gridEntity.GetVariant() != PoopGridEntityVariant.RAINBOW && (room.IsFirstVisit() || game.TimeCounter != v.run.FoolRoomTime)) {
                 if (getRandomInt(1, 10, Isaac.GetPlayer().GetCardRNG(ModEnums.CARD_MOMENTUUM_FOOL)) <= 8) {
@@ -516,20 +518,22 @@ export class MomentuumCards extends ModFeature {
 
     @Callback(ModCallback.POST_NPC_INIT)
     CardsPostNpcInit(npc: EntityNPC) {
-        if (v.run.Fool) {
+        if (v.run.Fool != 0) {
             let ref = EntityRef(undefined), duration = 3 * 30, damage = 3.5;
             if (npc.IsVulnerableEnemy()) {
-                switch (getRandomInt(1, 8, Isaac.GetPlayer().GetCardRNG(ModEnums.CARD_MOMENTUUM_FOOL))) {
-                    case 1: npc.AddBurn(ref, duration, damage); break;
-                    case 2: npc.AddCharmed(ref, duration); break;
-                    case 3: npc.AddConfusion(ref, duration); break;
-                    case 4: npc.AddFear(ref, duration); break;
-                    case 5: npc.AddFreeze(ref, duration); break;
-                    case 6: npc.AddMidasFreeze(ref, duration); break;
-                    case 7: npc.AddPoison(ref, duration, damage); break;
-                    case 8: npc.AddShrink(ref, duration); break;
-                    case 8: npc.AddSlowing(ref, duration, 0.5, COLORS.White); break;
-                }
+                repeat(v.run.Fool, () => {
+                    switch (getRandomInt(1, 8, Isaac.GetPlayer().GetCardRNG(ModEnums.CARD_MOMENTUUM_FOOL))) {
+                        case 1: npc.AddBurn(ref, duration, damage); break;
+                        case 2: npc.AddCharmed(ref, duration); break;
+                        case 3: npc.AddConfusion(ref, duration); break;
+                        case 4: npc.AddFear(ref, duration); break;
+                        case 5: npc.AddFreeze(ref, duration); break;
+                        case 6: npc.AddMidasFreeze(ref, duration); break;
+                        case 7: npc.AddPoison(ref, duration, damage); break;
+                        case 8: npc.AddShrink(ref, duration); break;
+                        case 8: npc.AddSlowing(ref, duration, 0.5, COLORS.White); break;
+                    }
+                });
             }
         }
     }

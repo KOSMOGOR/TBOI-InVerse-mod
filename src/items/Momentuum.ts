@@ -1,5 +1,5 @@
 import { ActiveSlot, ButtonAction, CacheFlag, CardType, CollectibleAnimation, CollectibleType, DamageFlag, Direction, DoorSlot, DoorVariant, EffectVariant, EntityType, ItemType, LaserVariant, LevelCurse, LevelStage, ModCallback, PickupVariant, PlayerItemAnimation, RoomType, SoundEffect, TrinketType, UseFlag } from "isaac-typescript-definitions";
-import { addFlag, addPlayerStat, arrayEquals, Callback, CallbackCustom, checkFamiliar, clamp, copyColor, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getGoldenTrinketType, getPickups, getPlayers, getPlayerTrinkets, getPocketItems, getRandomArrayElementAndRemove, getRandomInt, getRoomGridIndex, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, gridCoordinatesToWorldPosition, hasFlag, inRange, isActionPressedOnAnyInput, isEmptyFlag, isGlitchedCollectible, isGoldenTrinketType, isPickup, isPlayerAbleToAim, isSecretRoomType, isVector, itemConfig, K_COLORS, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PlayerIndex, PocketItemType, removeFlag, sfxManager, spawnEffect, spawnTrinket, VectorZero } from "isaacscript-common";
+import { addFlag, addPlayerStat, arrayEquals, Callback, CallbackCustom, checkFamiliar, clamp, copyColor, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getGoldenTrinketType, getPickups, getPlayers, getPlayerTrinkets, getPocketItems, getRandomArrayElementAndRemove, getRandomInt, getRoomGridIndex, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, gridCoordinatesToWorldPosition, hasFlag, inRange, inRoomType, isActionPressedOnAnyInput, isEmptyFlag, isGlitchedCollectible, isGoldenTrinketType, isPickup, isPlayerAbleToAim, isSecretRoomType, isVector, itemConfig, K_COLORS, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PlayerIndex, PocketItemType, removeFlag, sfxManager, spawnEffect, spawnTrinket, VectorZero } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { Utils } from "../misc/Utils";
 import { InnateItems } from "../misc/InnateItems";
@@ -261,6 +261,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
     new MomentuumSkill<TargetGridEntity>(
         (player) => {
             if (timeSpentInRoom < 5) return;
+            if (inRoomType(RoomType.BOSS)) return;
             let doors = getDoors()
                 .filter(door => player.Position.DistanceSquared(door.Position) <= MomentuumSkillsRadiusSq && !door.IsOpen() && !isSecretRoomType(door.TargetRoomType))
                 .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
@@ -269,6 +270,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
         (player, target) => {
             let door = target?.ToDoor(); if (!door) return;
             door.SetLocked(false);
+            door.TryUnlock(Isaac.GetPlayer(), true);
             door.Open();
         },
         (player, target) => {
@@ -463,12 +465,15 @@ const MomentuumHUDSprites = new DefaultMap<PlayerIndex, {base: Sprite, skill: Sp
     hud.skill.Play("IdleSkill", true);
     return hud;
 });
+const MomentuumUIArrow = Sprite();
+MomentuumUIArrow.Load("gfx/ui/Momentuum_Arrow.anm2", true);
+MomentuumUIArrow.Play(MomentuumUIArrow.GetDefaultAnimation(), true);
 
 // Data to save
 const v = {
     run: {
         MomentuumCharges: new DefaultMap<PlayerIndex, int>(12),
-        // index of all MomentuumSkills, not currently available
+        // Index of all MomentuumSkills, not currently available
         MomentuumSkillChoice: new DefaultMap<PlayerIndex, int>(-1),
         MomentuumInvincibility: new DefaultMap<PlayerIndex, int>(0),
         MomentuumConsumedStats: new DefaultMap<PlayerIndex, DefaultMap<CacheFlag, int>>(() => new DefaultMap(0, [...MomentummConsumedStatsValues.keys()].map(cf => [cf, 0])))
@@ -551,7 +556,8 @@ export class Momentuum extends ModFeature {
             let skillChoice = defaultMapGetPlayer(v.run.MomentuumSkillChoice, player);
             let currentAvailableSkills = mapGetPlayer(AvailableMomentuumSkillIndexes, player) ?? [];
             if (!arrayEquals(currentAvailableSkills, newAvailableMomentuumSkills)) {
-                if (newAvailableMomentuumSkills.some(skillInd => !currentAvailableSkills.includes(skillInd))) forceMaxAlpha = 30;
+                if (newAvailableMomentuumSkills.some(skillInd => !currentAvailableSkills.includes(skillInd)))
+                    if (game.GetRoom().IsClear()) forceMaxAlpha = 30;
                 mapSetPlayer(AvailableMomentuumSkillIndexes, player, newAvailableMomentuumSkills);
                 skillChoice = newAvailableMomentuumSkills[0] ?? -1;
             }
@@ -599,10 +605,10 @@ export class Momentuum extends ModFeature {
         if (holding && holding <= HoldingThreshold) {
             if (defaultMapGetPlayer(v.run.MomentuumCharges, player) > 0) {
                 addMomentuumCharges(player, -1);
-                // mapSetPlayer(v.run.MomentuumInvincibility, player, MomentuumDefaultInvincibility);
                 player.UseActiveItem(CollectibleType.DULL_RAZOR, UseFlag.NO_ANIMATION);
                 sfxManager.Stop(SoundEffect.DULL_RAZOR);
                 sfxManager.Stop(SoundEffect.ISAAC_HURT_GRUNT);
+                sfxManager.Play(SoundEffect.HOLY_MANTLE);
                 player.AnimateCollectible(ModEnums.COLLECTIBLE_MOMENTUUM, PlayerItemAnimation.HIDE_ITEM, CollectibleAnimation.PLAYER_PICKUP);
                 return false;
             }
@@ -795,8 +801,13 @@ export class Momentuum extends ModFeature {
         if (targetMap) target = mapGetPlayer(targetMap, player);
         if (!target) return;
         if (!["number"].includes(typeof target) && isVector(target.Position)) {
-            let pos = Utils.worldToMirrorScreen(target.Position).add(Vector(-20, -40));
-            font.DrawString("V", pos.X, pos.Y, K_COLORS.White, 40, true);
+            let targetPos = Utils.worldToMirrorScreen(target.Position);
+            let playerPos = Utils.worldToMirrorScreen(player.Position);
+            let toTarget = targetPos.sub(playerPos);
+            let distance = math.min(40, toTarget.Length() - 10);
+            let renderPos = playerPos.add(toTarget.Normalized().mul(distance));
+            MomentuumUIArrow.Rotation = math.deg(math.atan(toTarget.Y, toTarget.X)) - 90;
+            MomentuumUIArrow.Render(renderPos);
         }
     }
 
