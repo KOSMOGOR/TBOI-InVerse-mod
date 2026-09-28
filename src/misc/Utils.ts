@@ -1,5 +1,5 @@
-import { CollectibleType, ItemPoolType, ItemType, RoomType, type TrinketType } from "isaac-typescript-definitions";
-import { defaultMapGetPlayer, game, getGridIndexDelta, getPickups, getPlayers, getRandomArrayElement, getRoomGridIndex, isDoorSlotValidAtGridIndexForRedRoom, isRNG, itemConfig, mapSetPlayer, MAX_LEVEL_GRID_INDEX, newRNG, type DefaultMap, type PlayerIndex } from "isaacscript-common";
+import { CollectibleType, FamiliarVariant, ItemPoolType, ItemType, RoomType, type TrinketType } from "isaac-typescript-definitions";
+import { defaultMapGetPlayer, game, getFamiliars, getGridIndexDelta, getPickups, getPlayers, getRandomArrayElement, getRoomGridIndex, isDoorSlotValidAtGridIndexForRedRoom, isRNG, itemConfig, mapSetPlayer, MAX_LEVEL_GRID_INDEX, newRNG, type DefaultMap, type PlayerIndex } from "isaacscript-common";
 
 export class Utils {
     static getItemFromPool(pools: ItemPoolType | ItemPoolType[], rngOrSeed: RNG | Seed, minimumQuality: int = 0): CollectibleType {
@@ -100,5 +100,13 @@ export class Utils {
             if (surrondRoom.Data && surrondRoom.Data.Type == RoomType.BOSS) return false;
         }
         return true;
+    }
+
+    static playerHasLemegethonWisp(player: EntityPlayer, collectible: CollectibleType): boolean {
+        for (const familiar of getFamiliars(FamiliarVariant.ITEM_WISP)) {
+            if (familiar.Player.Index != player.Index || !familiar.IsVisible()) continue;
+            if (familiar.SubType == collectible) return true;
+        }
+        return false;
     }
 }

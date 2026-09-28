@@ -136,7 +136,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
             spawnEffect(EffectVariant.POOF_1, 0, pickup.Position);
             sfxManager.Play(SoundEffect.D6_ROLL);
         },
-        () => 4
+        () => 6
     ).setName("Reroll"),
     new MomentuumSkill<TargetEntity>(
         (player) => {
@@ -153,7 +153,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
             spawnEffect(EffectVariant.POOF_1, 0, pickup.Position);
             sfxManager.Play(SoundEffect.EDEN_GLITCH);
         },
-        () => 3
+        () => 6
     ).setName("Glitch"),
     new MomentuumSkill<TargetEntity>(
         (player) => {
@@ -192,6 +192,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
                 .map(ent => ent.ToPickup()).filter(pickup => pickup != undefined)
                 .filter(pickup => player.Position.DistanceSquared(pickup.Position) <= MomentuumSkillsRadiusSq && !isGlitchedCollectible(pickup) &&
                     pickup.SubType != CollectibleType.NULL && itemConfig.GetCollectible(pickup.SubType)?.Type == ItemType.PASSIVE)
+                .filter(pickup => Utils.playerHasLemegethonWisp(player, pickup.SubType)) // No duplicate wisps
                 .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
             return collectibles[0];
         },
@@ -217,7 +218,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
                 let pickup = target;
                 if (pickup.SubType == ModEnums.COLLECTIBLE_MOMENTUUM) charges = 12
                 else if ([CollectibleType.DATAMINER, CollectibleType.TMTRAINER].includes(pickup.SubType)) charges = getRandomInt(1, getMaxMomentuumCharges(player), pickup.DropSeed);
-                else charges = 2 + (itemConfig.GetCollectible(pickup.SubType)?.Quality ?? 0) * 2;
+                else charges = 2 + (itemConfig.GetCollectible(pickup.SubType)?.Quality ?? 0);
                 if (pickup.OptionsPickupIndex != 0) getPickups(PickupVariant.COLLECTIBLE).forEach(pickup2 => {
                     if (pickup2.OptionsPickupIndex == pickup.OptionsPickupIndex) {
                         pickup2.Remove();
@@ -280,7 +281,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
                 door.GetVariant() == DoorVariant.LOCKED_CRACKED && game.GetRoom().GetType() == RoomType.BOSS ||
                 door.TargetRoomType == RoomType.SECRET_EXIT && getStage() == LevelStage.DEPTHS_2) return 24;
             // Boss challenge, cube room, bedroom or vault
-            else if (door.TargetRoomType == RoomType.CHALLENGE && game.GetLevel().HasBossChallenge() || [DoorVariant.LOCKED_DOUBLE, DoorVariant.LOCKED_CRACKED].includes(door.GetVariant())) return 3;
+            else if (door.TargetRoomType == RoomType.CHALLENGE && game.GetLevel().HasBossChallenge() || [DoorVariant.LOCKED_DOUBLE, DoorVariant.LOCKED_CRACKED].includes(door.GetVariant())) return 4;
             // Shop, treasure, library, planetarium or normal challenge
             else if (door.GetVariant() == DoorVariant.LOCKED || door.TargetRoomType == RoomType.CHALLENGE) return 2;
             // All other - should be blowable and something similar
@@ -388,7 +389,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
                 spawnTrinket(getGoldenTrinketType(trinket), pos);
             });
         },
-        () => 3
+        () => 6
     ).setName("Gilding"),
     new MomentuumSkill<TargetEmpty>(
         (player) => {
@@ -397,7 +398,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
         (player) => {
             player.UseCard(CardType.HANGED_MAN, addFlag(UseFlag.NO_ANIMATION, UseFlag.NO_ANNOUNCER_VOICE));
         },
-        () => 2
+        () => 3
     ).setName("Fly"),
     new MomentuumSkill<TargetInt>(
         (player) => {
@@ -419,7 +420,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
         (player) => {
             game.GetRoom().MamaMegaExplosion(player.Position, player);
         },
-        () => game.GetRoom().GetType() == RoomType.BOSS ? 8 : 4
+        () => game.GetRoom().GetType() == RoomType.BOSS ? 10 : 6
     ).setName("MamaMega"),
 ]
 

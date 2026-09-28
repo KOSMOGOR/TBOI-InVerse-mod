@@ -1,7 +1,7 @@
-import { Callback, CallbackCustom, DefaultMap, defaultMapGetPlayer, game, getEntities, getGoldenTrinketType, getPlayersWithTrinket, getRandomArrayElement, getRandomInt, mapSetPlayer, MAX_PLAYER_TRINKET_SLOTS, ModCallbackCustom, ModFeature, PlayerIndex, smeltTrinket, spawnPickup, spawnTrinket, VectorZero } from "isaacscript-common";
+import { Callback, CallbackCustom, DefaultMap, defaultMapGetPlayer, game, getEntities, getGoldenTrinketType, getPlayersWithTrinket, getRandomArrayElement, getRandomInt, mapSetPlayer, MAX_PLAYER_TRINKET_SLOTS, ModCallbackCustom, ModFeature, PlayerIndex, smeltTrinket, spawnTrinket, VectorZero } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { InnateItems } from "../misc/InnateItems";
-import { CollectibleType, EntityType, ModCallback, PickupVariant, TrinketType, type DamageFlag } from "isaac-typescript-definitions";
+import { CollectibleType, EntityType, ModCallback, type DamageFlag } from "isaac-typescript-definitions";
 import { Utils } from "../misc/Utils";
 
 const v = {
