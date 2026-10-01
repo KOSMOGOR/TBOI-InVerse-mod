@@ -1,6 +1,5 @@
 import { CardType, CollectibleType, ModCallback, type ItemPoolType } from "isaac-typescript-definitions";
-import { Callback, game, getRandomFloat, getRoomItemPoolType, isCardPickup, isCollectible, itemConfig, ModFeature, PickupIndex } from "isaacscript-common";
-import { mod } from "../mod";
+import { Callback, game, getRandomFloat, itemConfig, ModFeature, PickupIndex } from "isaacscript-common";
 
 const lockedItems: Set<string> = new Set();
 const lockedCards: Set<{cardName: string, rerollChance: () => float}> = new Set();
@@ -18,7 +17,9 @@ const v = {
 function needRerollCard(lockedCard: {cardName: string, rerollChance: () => float}, rng: RNG): boolean {
     if (!v.persistent.unlockedCards.has(lockedCard.cardName)) return true;
     let rerollChance = lockedCard.rerollChance();
-    if (rerollChance > 0 || getRandomFloat(0, 1, rng) <= rerollChance) return true;
+    let r = getRandomFloat(0, 1, rng);
+    print(rerollChance, r);
+    if (rerollChance > 0 && r <= rerollChance) return true;
     return false;
 }
 

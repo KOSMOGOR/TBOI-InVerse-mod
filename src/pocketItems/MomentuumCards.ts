@@ -1,5 +1,5 @@
-import { CacheFlag, CardType, CollectibleType, DamageFlag, EntityFlag, EntityType, ModCallback, UseFlag, PlayerItemAnimation, SoundEffect, GridRoom, PickupVariant, RoomType, DisplayFlag, RoomDescriptorFlag, GeminiVariant, BeastVariant, DingleVariant, GurglingVariant, ItemPoolType, TrinketType, GridEntityType, PoopGridEntityVariant, PlayerType, PickupPrice, BombSubType, DarkEsauSubType, HeartSubType, FamiliarVariant, ChubVariant, DukeOfFliesVariant, PeepVariant, LokiVariant, FistulaVariant, WidowVariant, DaddyLongLegsVariant, PinVariant, PolycephalusVariant, EffectVariant } from "isaac-typescript-definitions";
-import { addFlag, anyPlayerHasCollectible, bitFlags, Callback, CallbackCustom, COLORS, DefaultMap, defaultMapGetPlayer, game, getBosses, getEntities, getEntityFromPtrHash, getEntityID, getPickups, getPlayers, getPocketItems, getRandomArrayElement, getRandomArrayIndex, getRandomFloat, getRandomInt, getRandomVector, getRoomDescriptorReadOnly, getRoomGridIndex, getRooms, getUnusedDoorSlots, hasCard, hasFlag, inRoomType, isCardPickup, isCharacter, isStoryBoss, itemConfig, mapDeletePlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PickupIndex, PocketItemType, repeat, setAddPlayer, setHasPlayer, sfxManager, smeltTrinket, spawn, spawnCollectible, spawnCollectibleFromPool, spawnEffect, spawnEntityID, spawnHeart, spawnNPC, spawnPickup, teleport, type EntityID, type PlayerIndex } from "isaacscript-common";
+import { CacheFlag, CardType, CollectibleType, DamageFlag, EntityFlag, EntityType, ModCallback, UseFlag, PlayerItemAnimation, SoundEffect, GridRoom, PickupVariant, RoomType, DisplayFlag, RoomDescriptorFlag, GeminiVariant, BeastVariant, DingleVariant, GurglingVariant, ItemPoolType, TrinketType, GridEntityType, PoopGridEntityVariant, PlayerType, PickupPrice, BombSubType, DarkEsauSubType, HeartSubType, FamiliarVariant, ChubVariant, DukeOfFliesVariant, PeepVariant, LokiVariant, FistulaVariant, WidowVariant, DaddyLongLegsVariant, PinVariant, PolycephalusVariant, EffectVariant, Music } from "isaac-typescript-definitions";
+import { addFlag, anyPlayerHasCollectible, bitFlags, Callback, CallbackCustom, COLORS, DefaultMap, defaultMapGetPlayer, game, getBosses, getEntities, getEntityFromPtrHash, getEntityID, getPickups, getPlayers, getPocketItems, getRandomArrayElement, getRandomArrayIndex, getRandomFloat, getRandomFromWeightedArray, getRandomInt, getRandomVector, getRoomDescriptorReadOnly, getRoomGridIndex, getRooms, getUnusedDoorSlots, hasCard, hasFlag, inRoomType, isCardPickup, isCharacter, isStoryBoss, itemConfig, mapDeletePlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, musicManager, PickupIndex, PocketItemType, repeat, setAddPlayer, setHasPlayer, sfxManager, smeltTrinket, spawn, spawnCollectible, spawnCollectibleFromPool, spawnEffect, spawnEntityID, spawnHeart, spawnNPC, spawnPickup, teleport, type EntityID, type PlayerIndex } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { Utils } from "../misc/Utils";
 import { InnateItems } from "../misc/InnateItems";
@@ -13,10 +13,11 @@ const v = {
     run: {
         Fool: 0,
         FoolRoomTime: 0,
+        CurrentFoolSound: SoundEffect.NULL,
         Priestess: false,
         Empress: new DefaultMap<PlayerIndex, int>(0),
         Emperor: {
-            Boss: [EntityType.NULL] as [EntityType, int?, EntityType?],
+            Boss: {bossType: EntityType.NULL} as {bossType: EntityType, bossVariant?: int, bossCount?: int},
             ActiveRoom: undefined as undefined | int,
             RemoveItems: new Array<PickupIndex>()
         },
@@ -42,7 +43,111 @@ const v = {
 
 const ActiveItems = Utils.getAllActiveItems();
 const ClownHairCostume = Isaac.GetCostumeIdByPath("gfx/characters/Clown_Hair.anm2");
-const ClownMusic = Isaac.GetMusicIdByName("CircusThemeSong");
+const FoolSounds: [string, SoundEffect, float?][] = [
+    ["192000", Isaac.GetSoundIdByName("Fool192000")],
+    ["6am", Isaac.GetSoundIdByName("Fool6am")],
+    ["A", Isaac.GetSoundIdByName("FoolA")],
+    ["Amerikaya", Isaac.GetSoundIdByName("FoolAmerikaya")],
+    ["Amongus", Isaac.GetSoundIdByName("FoolAmongus")],
+    ["Announcement", Isaac.GetSoundIdByName("FoolAnnouncement")],
+    ["Areyoustupid", Isaac.GetSoundIdByName("FoolAreyoustupid")],
+    ["Asgore", Isaac.GetSoundIdByName("FoolAsgore")],
+    ["Badapple", Isaac.GetSoundIdByName("FoolBadapple")],
+    ["Barinfart", Isaac.GetSoundIdByName("FoolBarinfart")],
+    ["Blackspiderman", Isaac.GetSoundIdByName("FoolBlackspiderman")],
+    ["Blya", Isaac.GetSoundIdByName("FoolBlya")],
+    ["Bodydiscovery", Isaac.GetSoundIdByName("FoolBodydiscovery")],
+    ["Bogosbinted", Isaac.GetSoundIdByName("FoolBogosbinted")],
+    ["Bone", Isaac.GetSoundIdByName("FoolBone")],
+    ["Bopeebo", Isaac.GetSoundIdByName("FoolBopeebo")],
+    ["Bruh", Isaac.GetSoundIdByName("FoolBruh")],
+    ["Caramelldancen", Isaac.GetSoundIdByName("FoolCaramelldancen")],
+    ["Cave1", Isaac.GetSoundIdByName("FoolCave1")],
+    ["Cave10", Isaac.GetSoundIdByName("FoolCave10")],
+    ["Cave12", Isaac.GetSoundIdByName("FoolCave12")],
+    ["Cave15", Isaac.GetSoundIdByName("FoolCave15")],
+    ["Cave2", Isaac.GetSoundIdByName("FoolCave2")],
+    ["Cave5", Isaac.GetSoundIdByName("FoolCave5")],
+    ["Cave8", Isaac.GetSoundIdByName("FoolCave8")],
+    ["Chickenjockey", Isaac.GetSoundIdByName("FoolChickenjockey")],
+    ["Chicken_jockey", Isaac.GetSoundIdByName("FoolChicken_jockey")],
+    ["Chipichapa", Isaac.GetSoundIdByName("FoolChipichapa")],
+    ["Chugjug", Isaac.GetSoundIdByName("FoolChugjug")],
+    ["Cooked", Isaac.GetSoundIdByName("FoolCooked")],
+    ["Crocodilo", Isaac.GetSoundIdByName("FoolCrocodilo")],
+    ["Daynnight", Isaac.GetSoundIdByName("FoolDaynnight")],
+    ["Dexter-meme", Isaac.GetSoundIdByName("FoolDexter-meme")],
+    ["Dor", Isaac.GetSoundIdByName("FoolDor")],
+    ["Dorime", Isaac.GetSoundIdByName("FoolDorime")],
+    ["Drowning", Isaac.GetSoundIdByName("FoolDrowning")],
+    ["Fade", Isaac.GetSoundIdByName("FoolFade")],
+    ["Fah", Isaac.GetSoundIdByName("FoolFah")],
+    ["Fart", Isaac.GetSoundIdByName("FoolFart")],
+    ["Fellas", Isaac.GetSoundIdByName("FoolFellas")],
+    ["Fish", Isaac.GetSoundIdByName("FoolFish")],
+    ["Fith", Isaac.GetSoundIdByName("FoolFith")],
+    ["Flashbang", Isaac.GetSoundIdByName("FoolFlashbang")],
+    ["Funkytown", Isaac.GetSoundIdByName("FoolFunkytown")],
+    ["Gay", Isaac.GetSoundIdByName("FoolGay")],
+    ["Goku", Isaac.GetSoundIdByName("FoolGoku")],
+    ["GokuFirst", Isaac.GetSoundIdByName("FoolGokuFirst")],
+    ["Goodbye", Isaac.GetSoundIdByName("FoolGoodbye")],
+    ["Gtfo", Isaac.GetSoundIdByName("FoolGtfo")],
+    ["Guts", Isaac.GetSoundIdByName("FoolGuts")],
+    ["Haro", Isaac.GetSoundIdByName("FoolHaro")],
+    ["Hellnah", Isaac.GetSoundIdByName("FoolHellnah")],
+    ["House", Isaac.GetSoundIdByName("FoolHouse")],
+    ["Huh", Isaac.GetSoundIdByName("FoolHuh")],
+    ["Humscare", Isaac.GetSoundIdByName("FoolHumscare")],
+    ["Hurhur", Isaac.GetSoundIdByName("FoolHurhur")],
+    ["Intheend", Isaac.GetSoundIdByName("FoolIntheend")],
+    ["Jumpscare", Isaac.GetSoundIdByName("FoolJumpscare")],
+    ["Killer", Isaac.GetSoundIdByName("FoolKiller")],
+    ["Legobreak", Isaac.GetSoundIdByName("FoolLegobreak")],
+    ["Letmeknow", Isaac.GetSoundIdByName("FoolLetmeknow")],
+    ["Lobotomy", Isaac.GetSoundIdByName("FoolLobotomy")],
+    ["Lobster", Isaac.GetSoundIdByName("FoolLobster")],
+    ["Megalovania", Isaac.GetSoundIdByName("FoolMegalovania")],
+    ["Metalpipe", Isaac.GetSoundIdByName("FoolMetalpipe")],
+    ["Nerd", Isaac.GetSoundIdByName("FoolNerd")],
+    ["Nether", Isaac.GetSoundIdByName("FoolNether")],
+    ["Nonono", Isaac.GetSoundIdByName("FoolNonono")],
+    ["Number15", Isaac.GetSoundIdByName("FoolNumber15")],
+    ["Oiiai1", Isaac.GetSoundIdByName("FoolOiiai1")],
+    ["Oiiai2", Isaac.GetSoundIdByName("FoolOiiai2")],
+    ["Oiiai3", Isaac.GetSoundIdByName("FoolOiiai3")],
+    ["Oioeoi", Isaac.GetSoundIdByName("FoolOioeoi")],
+    ["Omfg", Isaac.GetSoundIdByName("FoolOmfg")],
+    ["Oof", Isaac.GetSoundIdByName("FoolOof")],
+    ["Ph", Isaac.GetSoundIdByName("FoolPh")],
+    ["Ping", Isaac.GetSoundIdByName("FoolPing"), 0.3],
+    ["Pizza", Isaac.GetSoundIdByName("FoolPizza")],
+    ["Prowler", Isaac.GetSoundIdByName("FoolProwler")],
+    ["Rickrolled", Isaac.GetSoundIdByName("FoolRickrolled")],
+    ["Rizzx", Isaac.GetSoundIdByName("FoolRizzx")],
+    ["Sahur", Isaac.GetSoundIdByName("FoolSahur")],
+    ["Sans", Isaac.GetSoundIdByName("FoolSans")],
+    ["Scarypiano", Isaac.GetSoundIdByName("FoolScarypiano")],
+    ["Sisyphus", Isaac.GetSoundIdByName("FoolSisyphus")],
+    ["Snap", Isaac.GetSoundIdByName("FoolSnap")],
+    ["Snore", Isaac.GetSoundIdByName("FoolSnore")],
+    ["Sorting", Isaac.GetSoundIdByName("FoolSorting")],
+    ["Speedrun", Isaac.GetSoundIdByName("FoolSpeedrun")],
+    ["Spotifyad", Isaac.GetSoundIdByName("FoolSpotifyad")],
+    ["Sugoma", Isaac.GetSoundIdByName("FoolSugoma")],
+    ["Thickofit", Isaac.GetSoundIdByName("FoolThickofit")],
+    ["Tiktok", Isaac.GetSoundIdByName("FoolTiktok")],
+    ["Tralalelo", Isaac.GetSoundIdByName("FoolTralalelo")],
+    ["Triplebaka", Isaac.GetSoundIdByName("FoolTriplebaka")],
+    ["Unity", Isaac.GetSoundIdByName("FoolUnity")],
+    ["Vineboom", Isaac.GetSoundIdByName("FoolVineboom")],
+    ["Whathow", Isaac.GetSoundIdByName("FoolWhathow")],
+    ["Wideputin", Isaac.GetSoundIdByName("FoolWideputin")],
+    ["Winning", Isaac.GetSoundIdByName("FoolWinning")],
+    ["Wizard", Isaac.GetSoundIdByName("FoolWizard")],
+    ["Yippee", Isaac.GetSoundIdByName("FoolYippee")],
+];
+const FoolSoundsWeighted = Utils.arrayToWeighted(FoolSounds, sound => sound[2] ?? 1);
 const BloodOathSprite = Sprite();
 BloodOathSprite.Load("gfx/003.203_bloodoath.anm2", true);
 BloodOathSprite.SetAnimation("Stab", true);
@@ -51,6 +156,18 @@ const TargetBlueColor = Color(86 / 255, 108 / 255, 138 / 255);
 const IsaacColor = Color(227 / 255, 198 / 255, 197 / 255);
 const HierophantColor = Color(TargetBlueColor.R / IsaacColor.R, TargetBlueColor.G / IsaacColor.G, TargetBlueColor.B / IsaacColor.B);
 
+function PlayFoolSound(sound: SoundEffect) {
+    if (v.run.CurrentFoolSound != SoundEffect.NULL) sfxManager.Stop(v.run.CurrentFoolSound);
+    v.run.CurrentFoolSound = sound;
+    sfxManager.Play(sound);
+    musicManager.Pause();
+}
+
+function StopFoolSound() {
+    if (v.run.CurrentFoolSound != SoundEffect.NULL) sfxManager.Stop(v.run.CurrentFoolSound);
+    v.run.CurrentFoolSound = SoundEffect.NULL;
+    musicManager.Resume();
+}
 function MomentuumPriestess() {
     v.run.Priestess = false;
     if (inRoomType(RoomType.ANGEL)) {
@@ -86,63 +203,66 @@ function MomentuumWorld() {
             if (Utils.canBeRedRoom(doorSlot)) level.MakeRedRoomDoor(gridIndex, doorSlot);
     }
 }
-const MomentuumEmperor: [CollectibleType, EntityType, int?, int?][] = [
-    [CollectibleType.MONSTROS_TOOTH, EntityType.MONSTRO],
-    [CollectibleType.LITTLE_CHUBBY, EntityType.CHUB],
-    [CollectibleType.LIL_GURDY, EntityType.GURDY],
-    [CollectibleType.MONSTROS_LUNG, EntityType.MONSTRO_2],
-    [CollectibleType.HALO_OF_FLIES, EntityType.DUKE_OF_FLIES],
-    [CollectibleType.FREE_LEMONADE, EntityType.PEEP],
-    [CollectibleType.LOKIS_HORNS, EntityType.LOKI],
-    [CollectibleType.LIL_SPEWER, EntityType.BLASTOCYST_BIG],
-    [CollectibleType.GEMINI, EntityType.GEMINI],
-    [CollectibleType.LEPROSY, EntityType.FISTULA_BIG],
-    [CollectibleType.BRIMSTONE_BOMBS, EntityType.FALLEN],
-    [CollectibleType.BONE_SPURS, EntityType.CHUB, ChubVariant.CARRION_QUEEN],
-    [CollectibleType.INFESTATION, EntityType.DUKE_OF_FLIES, DukeOfFliesVariant.HUSK],
-    [CollectibleType.PEEPER, EntityType.PEEP, PeepVariant.BLOAT],
-    [CollectibleType.LIL_LOKI, EntityType.LOKI, LokiVariant.LOKII],
-    [CollectibleType.LOST_SOUL, EntityType.GEMINI, GeminiVariant.BLIGHTED_OVUM],
-    [CollectibleType.TINYTOMA, EntityType.FISTULA_BIG, FistulaVariant.TERATOMA],
-    [CollectibleType.SPIDERBABY, EntityType.WIDOW],
-    [CollectibleType.INFAMY, EntityType.MASK_OF_INFAMY],
-    [CollectibleType.JUICY_SACK, EntityType.WIDOW, WidowVariant.WRETCHED],
-    [CollectibleType.DADDY_LONGLEGS, EntityType.DADDY_LONG_LEGS],
-    [CollectibleType.SPIDER_BITE, EntityType.DADDY_LONG_LEGS, DaddyLongLegsVariant.TRIACHNID],
-    [CollectibleType.LIL_HAUNT, EntityType.HAUNT],
-    [CollectibleType.POOP, EntityType.DINGLE],
-    [CollectibleType.CONTINUUM, EntityType.MEGA_MAW],
-    [CollectibleType.HOST_HAT, EntityType.GATE],
-    [CollectibleType.THUNDER_THIGHS, EntityType.MEGA_FATTY],
-    [CollectibleType.BIRD_CAGE, EntityType.CAGE],
-    [CollectibleType.DARK_MATTER, EntityType.DARK_ONE],
-    [CollectibleType.EYE_OF_THE_OCCULT, EntityType.ADVERSARY],
-    [CollectibleType.GIANT_CELL, EntityType.POLYCEPHALUS],
-    [CollectibleType.WORM_FRIEND, EntityType.STAIN],
-    [CollectibleType.DIRTY_MIND, EntityType.BROWNIE],
-    [CollectibleType.BOOK_OF_THE_DEAD, EntityType.FORSAKEN],
-    [CollectibleType.LITTLE_HORN, EntityType.BIG_HORN],
-    [CollectibleType.BOX_OF_SPIDERS, EntityType.RAG_MAN],
-    [CollectibleType.MONTEZUMAS_REVENGE, EntityType.DINGLE, DingleVariant.DANGLE],
-    [CollectibleType.NUMBER_TWO, EntityType.GURGLING, GurglingVariant.TURDLING],
-    [CollectibleType.BRITTLE_BONES, EntityType.PIN, PinVariant.FRAIL],
-    [CollectibleType.SPOON_BENDER, EntityType.RAG_MEGA],
-    [CollectibleType.GIMPY, EntityType.SISTERS_VIS],
-    [CollectibleType.BIG_CHUBBY, EntityType.MATRIARCH],
-    [CollectibleType.COMPOUND_FRACTURE, EntityType.POLYCEPHALUS, PolycephalusVariant.PILE],
-    [CollectibleType.WIZ, EntityType.REAP_CREEP],
-    [CollectibleType.AQUARIUS, EntityType.LIL_BLUB],
-    [CollectibleType.DEPRESSION, EntityType.RAINMAKER],
-    [CollectibleType.EMPTY_HEART, EntityType.VISAGE],
-    [CollectibleType.CEREMONIAL_ROBES, EntityType.HERETIC],
-    [CollectibleType.MAGIC_SKIN, EntityType.SCOURGE],
-    [CollectibleType.DECAP_ATTACK, EntityType.CHIMERA],
-    [CollectibleType.SMART_FLY, EntityType.MIN_MIN],
-    [CollectibleType.FLUSH, EntityType.CLOG],
-    [CollectibleType.BIRDS_EYE, EntityType.SINGE],
-    [CollectibleType.BUTT_BOMBS, EntityType.COLOSTOMIA],
-    [CollectibleType.BROWN_NUGGET, EntityType.TURDLET],
-    [CollectibleType.ASTRAL_PROJECTION, EntityType.CLUTCH],
+const MomentuumEmperor: {item: CollectibleType, bossType: EntityType, bossVariant?: int, bossCount?: int}[] = [
+    {item: CollectibleType.MONSTROS_TOOTH, bossType: EntityType.MONSTRO},
+    {item: CollectibleType.LITTLE_CHUBBY, bossType: EntityType.CHUB, bossCount: 3},
+    {item: CollectibleType.LIL_GURDY, bossType: EntityType.GURDY},
+    {item: CollectibleType.MONSTROS_LUNG, bossType: EntityType.MONSTRO_2},
+    {item: CollectibleType.HALO_OF_FLIES, bossType: EntityType.DUKE_OF_FLIES},
+    {item: CollectibleType.FREE_LEMONADE, bossType: EntityType.PEEP},
+    {item: CollectibleType.LOKIS_HORNS, bossType: EntityType.LOKI},
+    {item: CollectibleType.LIL_SPEWER, bossType: EntityType.BLASTOCYST_BIG},
+    {item: CollectibleType.GEMINI, bossType: EntityType.GEMINI},
+    {item: CollectibleType.LEPROSY, bossType: EntityType.FISTULA_BIG},
+    {item: CollectibleType.BRIMSTONE_BOMBS, bossType: EntityType.FALLEN},
+    {item: CollectibleType.BONE_SPURS, bossType: EntityType.CHUB, bossVariant: ChubVariant.CARRION_QUEEN, bossCount: 3},
+    {item: CollectibleType.INFESTATION, bossType: EntityType.DUKE_OF_FLIES, bossVariant: DukeOfFliesVariant.HUSK},
+    {item: CollectibleType.PEEPER, bossType: EntityType.PEEP, bossVariant: PeepVariant.BLOAT},
+    {item: CollectibleType.LIL_LOKI, bossType: EntityType.LOKI, bossVariant: LokiVariant.LOKII},
+    {item: CollectibleType.LOST_SOUL, bossType: EntityType.GEMINI, bossVariant: GeminiVariant.BLIGHTED_OVUM},
+    {item: CollectibleType.TINYTOMA, bossType: EntityType.FISTULA_BIG, bossVariant: FistulaVariant.TERATOMA},
+    {item: CollectibleType.SPIDERBABY, bossType: EntityType.WIDOW},
+    {item: CollectibleType.INFAMY, bossType: EntityType.MASK_OF_INFAMY},
+    {item: CollectibleType.JUICY_SACK, bossType: EntityType.WIDOW, bossVariant: WidowVariant.WRETCHED},
+    {item: CollectibleType.DADDY_LONGLEGS, bossType: EntityType.DADDY_LONG_LEGS},
+    {item: CollectibleType.SPIDER_BITE, bossType: EntityType.DADDY_LONG_LEGS, bossVariant: DaddyLongLegsVariant.TRIACHNID},
+    {item: CollectibleType.LIL_HAUNT, bossType: EntityType.HAUNT},
+    {item: CollectibleType.POOP, bossType: EntityType.DINGLE},
+    {item: CollectibleType.CONTINUUM, bossType: EntityType.MEGA_MAW},
+    {item: CollectibleType.HOST_HAT, bossType: EntityType.GATE},
+    {item: CollectibleType.THUNDER_THIGHS, bossType: EntityType.MEGA_FATTY},
+    {item: CollectibleType.BIRD_CAGE, bossType: EntityType.CAGE},
+    {item: CollectibleType.DARK_MATTER, bossType: EntityType.DARK_ONE},
+    {item: CollectibleType.EYE_OF_THE_OCCULT, bossType: EntityType.ADVERSARY},
+    {item: CollectibleType.GIANT_CELL, bossType: EntityType.POLYCEPHALUS},
+    {item: CollectibleType.WORM_FRIEND, bossType: EntityType.STAIN},
+    {item: CollectibleType.DIRTY_MIND, bossType: EntityType.BROWNIE},
+    {item: CollectibleType.BOOK_OF_THE_DEAD, bossType: EntityType.FORSAKEN},
+    {item: CollectibleType.LITTLE_HORN, bossType: EntityType.BIG_HORN},
+    {item: CollectibleType.BOX_OF_SPIDERS, bossType: EntityType.RAG_MAN},
+    {item: CollectibleType.MONTEZUMAS_REVENGE, bossType: EntityType.DINGLE, bossVariant: DingleVariant.DANGLE},
+    {item: CollectibleType.NUMBER_TWO, bossType: EntityType.GURGLING, bossVariant: GurglingVariant.TURDLING},
+    {item: CollectibleType.BRITTLE_BONES, bossType: EntityType.PIN, bossVariant: PinVariant.FRAIL},
+    {item: CollectibleType.SPOON_BENDER, bossType: EntityType.RAG_MEGA},
+    {item: CollectibleType.GIMPY, bossType: EntityType.SISTERS_VIS},
+    {item: CollectibleType.BIG_CHUBBY, bossType: EntityType.MATRIARCH},
+    {item: CollectibleType.COMPOUND_FRACTURE, bossType: EntityType.POLYCEPHALUS, bossVariant: PolycephalusVariant.PILE},
+    {item: CollectibleType.WIZ, bossType: EntityType.REAP_CREEP},
+    {item: CollectibleType.AQUARIUS, bossType: EntityType.LIL_BLUB},
+    {item: CollectibleType.DEPRESSION, bossType: EntityType.RAINMAKER},
+    {item: CollectibleType.EMPTY_HEART, bossType: EntityType.VISAGE},
+    {item: CollectibleType.CEREMONIAL_ROBES, bossType: EntityType.HERETIC},
+    {item: CollectibleType.MAGIC_SKIN, bossType: EntityType.SCOURGE},
+    {item: CollectibleType.DECAP_ATTACK, bossType: EntityType.CHIMERA},
+    {item: CollectibleType.SMART_FLY, bossType: EntityType.MIN_MIN},
+    {item: CollectibleType.FLUSH, bossType: EntityType.CLOG},
+    {item: CollectibleType.BIRDS_EYE, bossType: EntityType.SINGE},
+    {item: CollectibleType.BUTT_BOMBS, bossType: EntityType.COLOSTOMIA},
+    {item: CollectibleType.BROWN_NUGGET, bossType: EntityType.TURDLET},
+    {item: CollectibleType.ASTRAL_PROJECTION, bossType: EntityType.CLUTCH},
+];
+const MomentuumEmperorNotDespawn: [EntityType] = [
+    EntityType.DARK_ESAU,
 ];
 
 export class MomentuumCards extends ModFeature {
@@ -174,7 +294,8 @@ export class MomentuumCards extends ModFeature {
             case ModEnums.CARD_MOMENTUUM_FOOL:
                 v.run.Fool = math.max(hasTarotCloth ? 2 : 1, v.run.Fool);
                 player.AddNullCostume(ClownHairCostume);
-                // musicManager.Crossfade(ClownMusic, 0.1);
+                let foolSound = getRandomFromWeightedArray(FoolSoundsWeighted, undefined);
+                PlayFoolSound(foolSound[1]);
                 break
             case ModEnums.CARD_MOMENTUUM_MAGICIAN:
                 let wispCount = hasTarotCloth ? 16 : 8;
@@ -215,14 +336,14 @@ export class MomentuumCards extends ModFeature {
                 let optionsIndex = Utils.getFreePickupOptionsIndex();
                 for (let itemInd of selectedItemsIndexes) {
                     let emp = MomentuumEmperor[itemInd]; if (!emp) continue;
-                    let item = emp[0] ?? CollectibleType.NULL;
+                    let item = emp.item ?? CollectibleType.NULL;
                     if (item == CollectibleType.NULL) continue;
                     let entityPickup = spawnCollectible(item, room.FindFreePickupSpawnPosition(player.Position, 20), undefined);
                     spawnedPickupIndexes.push(mod.getPickupIndex(entityPickup));
                     entityPickup.OptionsPickupIndex = optionsIndex;
                 }
                 v.run.Emperor = {
-                    Boss: [EntityType.NULL],
+                    Boss: {bossType: EntityType.NULL},
                     ActiveRoom: getRoomGridIndex(),
                     RemoveItems: spawnedPickupIndexes
                 };
@@ -262,16 +383,19 @@ export class MomentuumCards extends ModFeature {
                 if (hasTarotCloth) player.UseActiveItem(CollectibleType.MEGA_MUSH);
                 break;
             case ModEnums.CARD_MOMENTUUM_HANGED:
+                let maxCap = 10 * (hasTarotCloth ? 2 : 1);
                 for (const pickup of getPickups().toSorted(
                     // first - collectibles
                     (a, b) => a.Variant == PickupVariant.COLLECTIBLE && b.Variant != PickupVariant.COLLECTIBLE ? -1 : 0
                 )) {
-                    if (v.run.Hanged.length >= 10) break;
+                    if (v.run.Hanged.length >= maxCap) break;
+                    if (pickup.Variant == PickupVariant.COLLECTIBLE && pickup.SubType == CollectibleType.NULL) continue;
                     v.run.Hanged.push({
                         entityID: getEntityID(pickup),
                         price: pickup.Price
                     });
                     pickup.Remove();
+                    spawnEffect(EffectVariant.POOF_1, 0, pickup.Position);
                 }
                 if (hasFlag(useFlags, UseFlag.OWNED)) player.AddCard(ModEnums.CARD_MOMENTUUM_HANGED);
                 break;
@@ -287,7 +411,7 @@ export class MomentuumCards extends ModFeature {
                 let bingeItems = [CollectibleType.LUNCH, CollectibleType.DINNER, CollectibleType.DESSERT, CollectibleType.BREAKFAST,
                     CollectibleType.ROTTEN_MEAT, CollectibleType.SNACK, CollectibleType.MIDNIGHT_SNACK, CollectibleType.SUPPER];
                 getEntities(EntityType.PICKUP, PickupVariant.COLLECTIBLE).forEach(item => {
-                    if (bingeItems.includes(item.SubType)) item.ToPickup()?.Morph(EntityType.PICKUP, PickupVariant.COLLECTIBLE, getRandomArrayElement(bingeItems, rng));
+                    item.ToPickup()?.Morph(EntityType.PICKUP, PickupVariant.COLLECTIBLE, getRandomArrayElement(bingeItems, rng));
                 });
                 if (hasTarotCloth) spawnCollectible(CollectibleType.APPLE, room.FindFreePickupSpawnPosition(player.Position, 20), undefined);
                 break;
@@ -392,31 +516,40 @@ export class MomentuumCards extends ModFeature {
         }
     }
 
+    @Callback(ModCallback.POST_UPDATE)
+    PostUpdate() {
+        if (v.run.CurrentFoolSound != SoundEffect.NULL && !sfxManager.IsPlaying(v.run.CurrentFoolSound)) StopFoolSound();
+    }
+
     @CallbackCustom(ModCallbackCustom.POST_NEW_ROOM_REORDERED)
     CardsNewRoom() {
         let room = game.GetRoom();
         v.run.FoolRoomTime = game.TimeCounter;
+        if (v.run.CurrentFoolSound != null) sfxManager.IsPlaying(v.run.CurrentFoolSound);
+        if (v.run.Fool > 0) {
+            let foolSound = getRandomFromWeightedArray(FoolSoundsWeighted, undefined);
+            mod.runNextGameFrame(() => PlayFoolSound(foolSound[1]));
+            // PlayFoolSound(foolSound[1]);
+        }
         if (v.run.Priestess) {
             MomentuumPriestess();
         }
-        if (v.run.Emperor.Boss[0] != EntityType.NULL) {
+        if (v.run.Emperor.Boss.bossType != EntityType.NULL) {
             if (inRoomType(RoomType.BOSS)) {
                 let bossFound = false;
                 for (const boss of getBosses()) {
-                    if (isStoryBoss(boss.Type)) continue;
+                    if (isStoryBoss(boss.Type) || MomentuumEmperorNotDespawn.includes(boss.Type)) continue;
                     bossFound = true;
                     boss.Remove();
                 }
                 if (bossFound) {
-                    spawnNPC(v.run.Emperor.Boss[0], 0, 0, room.GetCenterPos());
-                    v.run.Emperor.Boss = [EntityType.NULL];
+                    repeat(v.run.Emperor.Boss.bossCount ?? 1, () => {
+                        spawnNPC(v.run.Emperor.Boss.bossType, v.run.Emperor.Boss.bossVariant ?? 0, 0, room.GetCenterPos());
+                    });
+                    v.run.Emperor.Boss = {bossType: EntityType.NULL};
                 }
             }
         }
-        // for (const ind of v.level.LoversTimers.keys()) {
-        //     let time = v.level.LoversTimers.get(ind); if (time == undefined) continue;
-        //     if (time > 40) v.level.LoversTimers.delete(ind);
-        // }
         if (v.run.Emperor.ActiveRoom == getRoomGridIndex()) {
             v.run.Emperor.ActiveRoom = undefined;
             getPickups().forEach(pickup => {
@@ -445,23 +578,26 @@ export class MomentuumCards extends ModFeature {
     @CallbackCustom(ModCallbackCustom.POST_NEW_LEVEL_REORDERED)
     CardsNewLevel() {
         let players = getPlayers();
+        let anyHasTarotCloth = anyPlayerHasCollectible(CollectibleType.TAROT_CLOTH);
         if (v.run.Fool != 0) {
             v.run.Fool = 0;
             getPlayers().forEach(player => player.TryRemoveNullCostume(ClownHairCostume));
         }
+        for (const foolSound of FoolSounds) sfxManager.Stop(foolSound[1]);
         v.run.Emperor.ActiveRoom = undefined;
         v.run.Emperor.RemoveItems = [];
         if (v.run.Hermit) {
             v.run.Hermit = false;
             let player = Isaac.GetPlayer();
-            player.AddCoins(anyPlayerHasCollectible(CollectibleType.TAROT_CLOTH) ? -50 : -player.GetNumCoins());
+            player.AddCoins(anyHasTarotCloth ? -50 : -player.GetNumCoins());
         }
         if (v.run.Hanged.length > 0) {
+            let willConsume = !(anyHasTarotCloth && v.run.Hanged.length < 5);
             for (const player of players) {
                 if (!hasCard(player, ModEnums.CARD_MOMENTUUM_HANGED)) continue;
                 for (const pid of getPocketItems(player)) {
                     if (pid.type != PocketItemType.CARD || pid.subType != ModEnums.CARD_MOMENTUUM_HANGED) continue;
-                    player.SetCard(pid.slot, CardType.NULL);
+                    if (willConsume) player.SetCard(pid.slot, CardType.NULL);
                     for (const pickup of v.run.Hanged) {
                         let pos = game.GetRoom().FindFreePickupSpawnPosition(player.Position, 40);
                         let pickupEntity = spawnEntityID(pickup.entityID, pos).ToPickup();
@@ -508,7 +644,7 @@ export class MomentuumCards extends ModFeature {
         if (v.run.Fool != 0) {
             let room = game.GetRoom();
             if (gridEntity.GetType() == GridEntityType.POOP && gridEntity.GetVariant() != PoopGridEntityVariant.RAINBOW && (room.IsFirstVisit() || game.TimeCounter != v.run.FoolRoomTime)) {
-                if (getRandomInt(1, 10, Isaac.GetPlayer().GetCardRNG(ModEnums.CARD_MOMENTUUM_FOOL)) <= 8) {
+                if (getRandomInt(1, 10, Isaac.GetPlayer().GetCardRNG(ModEnums.CARD_MOMENTUUM_FOOL)) == 1) {
                     gridEntity.SetVariant(PoopGridEntityVariant.RAINBOW);
                     gridEntity.Init(gridEntity.GetSaveState().SpawnSeed);
                 }
@@ -590,9 +726,9 @@ export class MomentuumCards extends ModFeature {
     @CallbackCustom(ModCallbackCustom.POST_PLAYER_COLLECTIBLE_ADDED)
     CardsPlayerCollectibleAdded(player: EntityPlayer, collectibleType: CollectibleType) {
         if (v.run.Emperor.ActiveRoom == getRoomGridIndex()) {
-            let emp = MomentuumEmperor.find(x => x[0] == collectibleType);
+            let emp = MomentuumEmperor.find(x => x.item == collectibleType);
             if (emp) {
-                v.run.Emperor.Boss = [emp[1], emp[2], emp[3]];
+                v.run.Emperor.Boss = emp;
                 v.run.Emperor.ActiveRoom = undefined;
                 v.run.Emperor.RemoveItems = [];
             }

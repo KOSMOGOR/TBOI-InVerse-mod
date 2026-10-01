@@ -218,7 +218,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
                 let pickup = target;
                 if (pickup.SubType == ModEnums.COLLECTIBLE_MOMENTUUM) charges = 12
                 else if ([CollectibleType.DATAMINER, CollectibleType.TMTRAINER].includes(pickup.SubType)) charges = getRandomInt(1, getMaxMomentuumCharges(player), pickup.DropSeed);
-                else charges = 2 + (itemConfig.GetCollectible(pickup.SubType)?.Quality ?? 0);
+                else charges = 2 + (itemConfig.GetCollectible(pickup.SubType)?.Quality ?? 0) * 2;
                 if (pickup.OptionsPickupIndex != 0) getPickups(PickupVariant.COLLECTIBLE).forEach(pickup2 => {
                     if (pickup2.OptionsPickupIndex == pickup.OptionsPickupIndex) {
                         pickup2.Remove();
@@ -244,7 +244,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
     new MomentuumSkill<TargetEntity>(
         (player) => {
             let collectibles = getEntities(EntityType.PICKUP)
-                .filter(ent => player.Position.DistanceSquared(ent.Position) <= MomentuumSkillsRadiusSq && ent.SubType != CollectibleType.NULL && (ent.ToPickup()?.Price ?? 0) > 0)
+                .filter(ent => player.Position.DistanceSquared(ent.Position) <= MomentuumSkillsRadiusSq && ent.SubType != CollectibleType.NULL && (ent.ToPickup()?.Price ?? 0) != 0)
                 .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
             return collectibles[0]?.ToPickup();
         },
@@ -524,7 +524,8 @@ export class Momentuum extends ModFeature {
     @CallbackCustom(ModCallbackCustom.POST_PLAYER_UPDATE_REORDERED)
     MomentuumHolding(player: EntityPlayer) {
         let holding = mapGetPlayer(Holding, player);
-        if (holding && Input.IsActionPressed(ButtonAction.ITEM, player.ControllerIndex) && player.GetActiveItem(ActiveSlot.PRIMARY) == ModEnums.COLLECTIBLE_MOMENTUUM) {
+        if (holding && player.GetActiveItem(ActiveSlot.PRIMARY) != ModEnums.COLLECTIBLE_MOMENTUUM) player.UseActiveItem(ModEnums.COLLECTIBLE_MOMENTUUM, UseFlag.NO_ANIMATION);
+        else if (holding && Input.IsActionPressed(ButtonAction.ITEM, player.ControllerIndex) && player.GetActiveItem(ActiveSlot.PRIMARY) == ModEnums.COLLECTIBLE_MOMENTUUM) {
             mapSetPlayer(Holding, player, math.min(holding + 1, NeedHold));
             if (mapGetPlayer(Holding, player) == NeedHold) {
                 player.UseActiveItem(ModEnums.COLLECTIBLE_MOMENTUUM, UseFlag.NO_ANIMATION);
@@ -606,8 +607,7 @@ export class Momentuum extends ModFeature {
         if (holding && holding <= HoldingThreshold) {
             if (defaultMapGetPlayer(v.run.MomentuumCharges, player) > 0) {
                 addMomentuumCharges(player, -1);
-                player.UseActiveItem(CollectibleType.DULL_RAZOR, UseFlag.NO_ANIMATION);
-                sfxManager.Stop(SoundEffect.DULL_RAZOR);
+                player.TakeDamage(1, DamageFlag.FAKE, EntityRef(player), 60);
                 sfxManager.Stop(SoundEffect.ISAAC_HURT_GRUNT);
                 sfxManager.Play(SoundEffect.HOLY_MANTLE);
                 player.AnimateCollectible(ModEnums.COLLECTIBLE_MOMENTUUM, PlayerItemAnimation.HIDE_ITEM, CollectibleAnimation.PLAYER_PICKUP);

@@ -1,5 +1,5 @@
 import { CollectibleType, FamiliarVariant, ItemPoolType, ItemType, RoomType, type TrinketType } from "isaac-typescript-definitions";
-import { defaultMapGetPlayer, game, getFamiliars, getGridIndexDelta, getPickups, getPlayers, getRandomArrayElement, getRoomGridIndex, isDoorSlotValidAtGridIndexForRedRoom, isRNG, itemConfig, mapSetPlayer, MAX_LEVEL_GRID_INDEX, newRNG, type DefaultMap, type PlayerIndex } from "isaacscript-common";
+import { defaultMapGetPlayer, game, getFamiliars, getGridIndexDelta, getPickups, getPlayers, getRandomArrayElement, getRandomFromWeightedArray, getRoomGridIndex, isDoorSlotValidAtGridIndexForRedRoom, isRNG, itemConfig, mapSetPlayer, MAX_LEVEL_GRID_INDEX, newRNG, type DefaultMap, type PlayerIndex } from "isaacscript-common";
 
 export class Utils {
     static getItemFromPool(pools: ItemPoolType | ItemPoolType[], rngOrSeed: RNG | Seed, minimumQuality: int = 0): CollectibleType {
@@ -108,5 +108,10 @@ export class Utils {
             if (familiar.SubType == collectible) return true;
         }
         return false;
+    }
+
+    static arrayToWeighted<T>(array: T[], getWeight: (elem: T) => float): [T, float][] {
+        let weightedArray = array.map(elem => [elem, getWeight(elem)]) as [T, float][];
+        return weightedArray;
     }
 }
