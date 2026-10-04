@@ -200,7 +200,7 @@ const v = {
         tookDamageThisRoom: false
     },
     level: {
-        pickupsInfo: new Map<PickupIndex, {locked: boolean, canTouch: boolean, cost: int, wait: int, basePrice?: int}>(),
+        pickupsInfo: new Map<PickupIndex, {locked: boolean, canTouch: boolean, cost: int, wait: int, waitForUnlock?: int, basePrice?: int}>(),
         // For turning pickups into hunter keys and other things
         checkedPickups: new Set<PickupIndex>(),
         hunterChestRewards: new Map<PickupIndex, Array<{Variant: PickupVariant, SubType: int, anm2?: string}>>(),
@@ -328,13 +328,14 @@ export class Teegro extends ModFeature {
     ResetValues() {
         lockedEffects.clear();
         v.run.tookDamageThisRoom = false;
-        getPickups().forEach(pickup => {
-            let ind = mod.getPickupIndex(pickup);
-            if (v.level.pickupsRemoveOnNewRoom.has(ind)) {
+        if (!game.GetRoom().IsFirstVisit()) {
+            getPickups().forEach(pickup => {
+                let ind = mod.getPickupIndex(pickup);
+                if (!v.level.pickupsRemoveOnNewRoom.has(ind)) return;
                 pickup.Remove();
                 v.level.pickupsRemoveOnNewRoom.delete(ind);
-            }
-        });
+            });
+        }
     }
 
     @CallbackCustom(ModCallbackCustom.POST_NEW_ROOM_REORDERED)
@@ -364,6 +365,13 @@ export class Teegro extends ModFeature {
         let room = game.GetRoom();
         if (!v.run.tookDamageThisRoom && getRandomInt(1, 2, game.GetRoom().GetAwardSeed()) == 1)
             spawnPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Shard, room.FindFreePickupSpawnPosition(room.GetCenterPos()));
+        let hasBossChallenge = game.GetLevel().HasBossChallenge();
+        if (inRoomType(RoomType.CHALLENGE) && !hasBossChallenge)
+            repeat(getRandomInt(1, 3, room.GetAwardSeed()), () => {
+                spawnPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Shard, room.FindFreePickupSpawnPosition(room.GetCenterPos()));
+            });
+        else if (inRoomType(RoomType.CHALLENGE) && hasBossChallenge)
+            spawnPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Full, room.FindFreePickupSpawnPosition(room.GetCenterPos()));
     }
 
     @CallbackCustom(ModCallbackCustom.POST_PICKUP_UPDATE_FILTER, PickupVariant.COLLECTIBLE)
@@ -374,6 +382,10 @@ export class Teegro extends ModFeature {
         if (pickupInfo?.locked == false || pickup.SubType == CollectibleType.NULL) return;
         // "Free" price - skip
         if ([PickupPrice.YOUR_SOUL, PickupPrice.FREE].includes(pickup.Price)) return;
+        // Quest item or boss room - skip
+        if (itemConfig.GetCollectible(pickup.SubType)?.HasTags(ItemConfigTag.QUEST) || inRoomType(RoomType.BOSS)) return;
+        // In Boss Rush or free item in Blue Womb - skip
+        if (inRoomType(RoomType.BOSS_RUSH) || onStage(LevelStage.BLUE_WOMB) && pickup.Price == 0) return;
         // No Teegro - mark as unlocked
         if (!getCharacters().includes(ModEnums.PLAYER_TEEGRO)) {
             v.level.pickupsInfo.set(ind, {
@@ -386,25 +398,26 @@ export class Teegro extends ModFeature {
         }
         // Item was forcefully made free - unlock
         let forceUpdate = false;
-        if (pickupInfo?.locked && pickupInfo.basePrice != 0 && pickup.Price == 0) {
+        if (pickupInfo?.locked && pickupInfo.basePrice != undefined && pickupInfo.basePrice != 0 && pickup.Price == 0) {
             pickupInfo.locked = false;
             forceUpdate = true;
         }
         // Didn't check or price returned to normal - lock
         else if (!pickupInfo || pickup.Price != HunterPrice && pickup.Price != 0) {
-            if (itemConfig.GetCollectible(pickup.SubType)?.HasTags(ItemConfigTag.QUEST) || inRoomType(RoomType.BOSS)) return;
             let canTouch = pickup.Price == 0;
             let wait = canTouch ? 15 : 0;
+            let waitForUnlock = canTouch ? 15 : 0;
             pickupInfo = {
                 locked: true,
                 canTouch,
                 cost: 0,
-                wait
+                wait,
+                waitForUnlock
             };
             forceUpdate = true;
         }
         // Evaluate cost first time or reevaluate if wrong
-        if (pickupInfo.locked) {
+        if (pickupInfo.locked && pickupInfo.basePrice != 0) {
             let itemConfigItem = itemConfig.GetCollectible(pickup.SubType);
             let basePrice = 0;
             let priceToCheck = pickupInfo.basePrice ?? pickup.Price;
@@ -431,7 +444,7 @@ export class Teegro extends ModFeature {
         // If item unlocks - default behaviour
         if (!pickupInfo.locked && pickupInfo.wait > 0) return !pickupInfo.canTouch;
         // If item is just locked - try buy it
-        if (v.run.keyShards >= pickupInfo.cost) {
+        if (v.run.keyShards >= pickupInfo.cost && (!pickupInfo.waitForUnlock || pickupInfo.waitForUnlock == 0)) {
             AddHunterKeyShards(-pickupInfo.cost);
             pickupInfo.locked = false;
             UnlockItemSprite(pickup);
@@ -461,6 +474,10 @@ export class Teegro extends ModFeature {
         if (!pickupInfo) return;
         if (!pickupInfo.locked && pickupInfo.wait > 0) {
             pickupInfo.wait--;
+            v.level.pickupsInfo.set(ind, pickupInfo);
+        }
+        if (pickupInfo.locked && pickupInfo.waitForUnlock && pickupInfo.waitForUnlock > 0) {
+            pickupInfo.waitForUnlock--;
             v.level.pickupsInfo.set(ind, pickupInfo);
         }
         let effects = lockedEffects.get(ind); if (!effects) return;
@@ -596,10 +613,12 @@ export class Teegro extends ModFeature {
             let ind = mod.getPickupIndex(pickup);
             v.level.pickupsInfo.set(ind, {
                 locked: true,
-                canTouch: true,
+                canTouch: false,
                 cost: getRandomInt(2, 3, pickup.InitSeed) * 4,
-                wait: 15
+                wait: 15,
+                basePrice: 0
             });
+            LockItemSprite(pickup);
             v.level.pickupsRemoveOnNewRoom.add(ind);
         });
         InnateItems.RemoveItem(teegro, CollectibleType.CHAOS);
@@ -610,8 +629,9 @@ export class Teegro extends ModFeature {
         if (!getCharacters().includes(ModEnums.PLAYER_TEEGRO)) return;
         if (npc.IsBoss() && !v.room.droppedKey) {
             let subType = inRoomType(RoomType.MINI_BOSS) ? ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Shard : inRoomType(RoomType.BOSS, RoomType.ANGEL, RoomType.DEVIL) ? ModEnums.PICKUP_HUNTER_KEY_SUBTYPE.Full : -1;
+            let count = inRoomType(RoomType.MINI_BOSS) ? getRandomInt(1, 3, game.GetRoom().GetAwardSeed()) : 1;
             if (subType != -1) {
-                spawnPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, subType, npc.Position, getRandomVector(undefined).Resized(5));
+                repeat(count, () => spawnPickup(ModEnums.PICKUP_HUNTER_KEY_VARIANT, subType, npc.Position, getRandomVector(undefined).Resized(5)));
                 v.room.droppedKey = true;
             }
         }

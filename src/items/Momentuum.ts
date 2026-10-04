@@ -1,5 +1,5 @@
-import { ActiveSlot, ButtonAction, CacheFlag, CardType, CollectibleAnimation, CollectibleType, DamageFlag, Direction, DoorSlot, DoorVariant, EffectVariant, EntityType, ItemType, LaserVariant, LevelCurse, LevelStage, ModCallback, PickupVariant, PlayerItemAnimation, RoomType, SoundEffect, TrinketType, UseFlag } from "isaac-typescript-definitions";
-import { addFlag, addPlayerStat, arrayEquals, Callback, CallbackCustom, checkFamiliar, clamp, copyColor, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getGoldenTrinketType, getPickups, getPlayers, getPlayerTrinkets, getPocketItems, getRandomArrayElementAndRemove, getRandomInt, getRoomGridIndex, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, gridCoordinatesToWorldPosition, hasFlag, inRange, inRoomType, isActionPressedOnAnyInput, isEmptyFlag, isGlitchedCollectible, isGoldenTrinketType, isPickup, isPlayerAbleToAim, isSecretRoomType, isVector, itemConfig, K_COLORS, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, PlayerIndex, PocketItemType, removeFlag, sfxManager, spawnEffect, spawnTrinket, VectorZero } from "isaacscript-common";
+import { ActiveSlot, ButtonAction, CacheFlag, CardType, CollectibleAnimation, CollectibleType, DamageFlag, Direction, DoorSlot, DoorVariant, EffectVariant, EntityType, ItemType, LaserVariant, LevelCurse, LevelStage, ModCallback, Music, PickupVariant, PlayerItemAnimation, RoomType, SoundEffect, TrinketType, UseFlag } from "isaac-typescript-definitions";
+import { addFlag, addPlayerStat, arrayEquals, Callback, CallbackCustom, checkFamiliar, clamp, copyColor, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getGoldenTrinketType, getPickups, getPlayers, getPlayerTrinkets, getPocketItems, getRandomArrayElementAndRemove, getRandomInt, getRoomGridIndex, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, gridCoordinatesToWorldPosition, hasFlag, inRange, inRoomType, isActionPressedOnAnyInput, isCollectible, isEmptyFlag, isGlitchedCollectible, isGoldenTrinketType, isPickup, isPlayerAbleToAim, isSecretRoomType, isVector, itemConfig, K_COLORS, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, musicManager, PlayerIndex, PocketItemType, removeFlag, sfxManager, spawnEffect, spawnPickup, spawnTrinket, VectorZero } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { Utils } from "../misc/Utils";
 import { InnateItems } from "../misc/InnateItems";
@@ -121,148 +121,10 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
     //         return 0;
     //     }
     // ).setName(""),
-    new MomentuumSkill<TargetEntity>(
-        (player) => {
-            let collectibles = getEntities(EntityType.PICKUP, PickupVariant.COLLECTIBLE)
-                .filter(ent => player.Position.DistanceSquared(ent.Position) <= MomentuumSkillsRadiusSq && ent.SubType != CollectibleType.NULL)
-                .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
-            return collectibles[0]?.ToPickup();
-        },
-        (player, target) => {
-            let pickup = target?.ToPickup(); if (!pickup) return;
-            let pool = getRoomItemPoolType();
-            let item = game.GetItemPool().GetCollectible(pool, true, game.GetRoom().GetAwardSeed());
-            pickup.Morph(EntityType.PICKUP, PickupVariant.COLLECTIBLE, item, true);
-            spawnEffect(EffectVariant.POOF_1, 0, pickup.Position);
-            sfxManager.Play(SoundEffect.D6_ROLL);
-        },
-        () => 6
-    ).setName("Reroll"),
-    new MomentuumSkill<TargetEntity>(
-        (player) => {
-            let collectibles = getEntities(EntityType.PICKUP, PickupVariant.COLLECTIBLE)
-                .filter(ent => player.Position.DistanceSquared(ent.Position) <= MomentuumSkillsRadiusSq && ent.SubType != CollectibleType.NULL)
-                .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
-            return collectibles[0]?.ToPickup();
-        },
-        (player, target) => {
-            let pickup = target?.ToPickup(); if (!pickup) return;
-            player.AddCollectible(CollectibleType.TMTRAINER);
-            pickup.Morph(EntityType.PICKUP, PickupVariant.COLLECTIBLE, CollectibleType.SAD_ONION, true);
-            player.RemoveCollectible(CollectibleType.TMTRAINER);
-            spawnEffect(EffectVariant.POOF_1, 0, pickup.Position);
-            sfxManager.Play(SoundEffect.EDEN_GLITCH);
-        },
-        () => 6
-    ).setName("Glitch"),
-    new MomentuumSkill<TargetEntity>(
-        (player) => {
-            let collectibles = getEntities(EntityType.PICKUP, PickupVariant.COLLECTIBLE)
-                .filter(ent => player.Position.DistanceSquared(ent.Position) <= MomentuumSkillsRadiusSq && ent.SubType != CollectibleType.NULL && ent.ToPickup()?.Price == 0)
-                .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
-            return collectibles[0]?.ToPickup();
-        },
-        (player, target) => {
-            let pickup = target?.ToPickup(); if (!pickup) return;
-            let possibleStats = [...MomentummConsumedStatsValues.keys()];
-            let statsGained = []
-            for (let i = 0; i < 2; i++) {
-                let stat = getRandomArrayElementAndRemove(possibleStats, player.GetCollectibleRNG(ModEnums.COLLECTIBLE_MOMENTUUM));
-                statsGained.push(stat);
-                if (possibleStats.length == 0) break;
-            }
-            let momentuumStats = defaultMapGetPlayer(v.run.MomentuumConsumedStats, player);
-            statsGained.forEach(stat => momentuumStats.set(stat, momentuumStats.getAndSetDefault(stat) + 1));
-            mapSetPlayer(v.run.MomentuumConsumedStats, player, momentuumStats);
-            if (pickup.OptionsPickupIndex != 0) getPickups(PickupVariant.COLLECTIBLE).forEach(pickup2 => {
-                if (pickup2.OptionsPickupIndex == pickup.OptionsPickupIndex) {
-                    pickup2.Remove();
-                    spawnEffect(EffectVariant.POOF_1, 0, pickup2.Position);
-                }
-            });
-            else pickup.Remove();
-            player.AddCacheFlags(addFlag(CacheFlag.ALL));
-            player.EvaluateItems();
-        },
-        () => 3
-    ).setName("Consume"),
-    new MomentuumSkill<TargetEntity>(
-        (player) => {
-            let collectibles = getEntities(EntityType.PICKUP, PickupVariant.COLLECTIBLE)
-                .map(ent => ent.ToPickup()).filter(pickup => pickup != undefined)
-                .filter(pickup => player.Position.DistanceSquared(pickup.Position) <= MomentuumSkillsRadiusSq && !isGlitchedCollectible(pickup) &&
-                    pickup.SubType != CollectibleType.NULL && itemConfig.GetCollectible(pickup.SubType)?.Type == ItemType.PASSIVE)
-                .filter(pickup => Utils.playerHasLemegethonWisp(player, pickup.SubType)) // No duplicate wisps
-                .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
-            return collectibles[0];
-        },
-        (player, target) => {
-            let pickup = target?.ToPickup(); if (!pickup) return;
-            player.AddItemWisp(pickup.SubType, player.Position);
-        },
-        () => 4
-    ).setName("Copy"),
-    new MomentuumSkill<TargetEntity | TargetEmpty>(
-        (player) => {
-            if (defaultMapGetPlayer(v.run.MomentuumCharges, player) == getMaxMomentuumCharges(player)) return undefined;
-            let collectibles = getEntities(EntityType.PICKUP, PickupVariant.COLLECTIBLE)
-                .filter(ent => player.Position.DistanceSquared(ent.Position) <= MomentuumSkillsRadiusSq && ent.SubType != CollectibleType.NULL && ent.ToPickup()?.Price == 0)
-                .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
-            if (collectibles.length > 0) return collectibles[0]?.ToPickup();
-            else if (player.HasCollectible(CollectibleType.SHARP_PLUG)) return {};
-            return undefined;
-        },
-        (player, target) => {
-            let charges = 0;
-            if (isPickup(target)) {
-                let pickup = target;
-                if (pickup.SubType == ModEnums.COLLECTIBLE_MOMENTUUM) charges = 12
-                else if ([CollectibleType.DATAMINER, CollectibleType.TMTRAINER].includes(pickup.SubType)) charges = getRandomInt(1, getMaxMomentuumCharges(player), pickup.DropSeed);
-                else charges = 2 + (itemConfig.GetCollectible(pickup.SubType)?.Quality ?? 0) * 2;
-                if (pickup.OptionsPickupIndex != 0) getPickups(PickupVariant.COLLECTIBLE).forEach(pickup2 => {
-                    if (pickup2.OptionsPickupIndex == pickup.OptionsPickupIndex) {
-                        pickup2.Remove();
-                        spawnEffect(EffectVariant.POOF_1, 0, pickup2.Position);
-                    }
-                });
-                else pickup.Remove();
-            } else if (typeof target == "object" && player.HasCollectible(CollectibleType.SHARP_PLUG)) {
-                player.TakeDamage(2, addFlag(DamageFlag.RED_HEARTS, DamageFlag.ISSAC_HEART, DamageFlag.INVINCIBLE, DamageFlag.IV_BAG, DamageFlag.NO_MODIFIERS), EntityRef(player), 30);
-                charges = 2;
-            }
-            if (charges > 0) {
-                addMomentuumCharges(player, charges);
-                sfxManager.Play(SoundEffect.BATTERY_CHARGE);
-                let effect = spawnEffect(EffectVariant.BATTERY, 0, player.Position.add(Vector(0, -40)));
-                effect.SpriteScale = Vector(0.8, 0.8);
-                effect.GetSprite().PlaybackSpeed = 0.7;
-                effect.DepthOffset = 200;
-            }
-        },
-        () => 0
-    ).setName("Charge"),
-    new MomentuumSkill<TargetEntity>(
-        (player) => {
-            let collectibles = getEntities(EntityType.PICKUP)
-                .filter(ent => player.Position.DistanceSquared(ent.Position) <= MomentuumSkillsRadiusSq && ent.SubType != CollectibleType.NULL && (ent.ToPickup()?.Price ?? 0) != 0)
-                .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
-            return collectibles[0]?.ToPickup();
-        },
-        (player, target) => {
-            let pickup = target?.ToPickup(); if (!pickup) return;
-            pickup.Price = 0;
-        },
-        (player, target) => {
-            let pickup = target?.ToPickup(); if (!pickup) return 0;
-            if (!pickup.Price) return 0;
-            let coinsPrice = pickup.Price < 0 ? 15 : pickup.Price;
-            return math.ceil(coinsPrice / 7) * 2;
-        }
-    ).setName("Free"),
     new MomentuumSkill<TargetGridEntity>(
         (player) => {
             if (timeSpentInRoom < 5) return;
-            if (inRoomType(RoomType.BOSS)) return;
+            if (inRoomType(RoomType.BOSS) && !game.GetRoom().IsClear()) return;
             let doors = getDoors()
                 .filter(door => player.Position.DistanceSquared(door.Position) <= MomentuumSkillsRadiusSq && !door.IsOpen() && !isSecretRoomType(door.TargetRoomType))
                 .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
@@ -312,9 +174,139 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
             let door = game.GetRoom().GetDoor(target.doorSlot);
             if (door) door.SetLocked(false);
             else level.MakeRedRoomDoor(getRoomGridIndex(), target.doorSlot);
+            sfxManager.Play(SoundEffect.GOLDEN_KEY);
         },
         () => 4
     ).setName("OpenWall"),
+    new MomentuumSkill<TargetEntity>(
+        (player) => {
+            let collectibles = getEntities(EntityType.PICKUP, PickupVariant.COLLECTIBLE)
+                .filter(ent => player.Position.DistanceSquared(ent.Position) <= MomentuumSkillsRadiusSq && ent.SubType != CollectibleType.NULL)
+                .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
+            return collectibles[0]?.ToPickup();
+        },
+        (player, target) => {
+            let pickup = target?.ToPickup(); if (!pickup) return;
+            let pool = getRoomItemPoolType();
+            let item = game.GetItemPool().GetCollectible(pool, true, game.GetRoom().GetAwardSeed());
+            pickup.Morph(EntityType.PICKUP, PickupVariant.COLLECTIBLE, item, true);
+            spawnEffect(EffectVariant.POOF_1, 0, pickup.Position);
+            sfxManager.Play(SoundEffect.D6_ROLL);
+        },
+        () => 6
+    ).setName("RerollItem"),
+    new MomentuumSkill<TargetEntity>(
+        (player) => {
+            let collectibles = getEntities(EntityType.PICKUP)
+                .map(ent => ent.ToPickup()).filter(pickup => pickup != undefined)
+                .filter(pickup => player.Position.DistanceSquared(pickup.Position) <= MomentuumSkillsRadiusSq && !isCollectible(pickup) && pickup.Price == 0)
+                .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
+            return collectibles[0];
+        },
+        (player, target) => {
+            let pickup = target?.ToPickup(); if (!pickup) return;
+            pickup.Morph(EntityType.PICKUP, 0, 0, true);
+            spawnEffect(EffectVariant.POOF_1, 0, pickup.Position);
+        },
+        () => 2
+    ).setName("RerollPickup"),
+    new MomentuumSkill<TargetEntity>(
+        (player) => {
+            let collectibles = getEntities(EntityType.PICKUP, PickupVariant.COLLECTIBLE)
+                .filter(ent => player.Position.DistanceSquared(ent.Position) <= MomentuumSkillsRadiusSq && ent.SubType != CollectibleType.NULL)
+                .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
+            return collectibles[0]?.ToPickup();
+        },
+        (player, target) => {
+            let pickup = target?.ToPickup(); if (!pickup) return;
+            player.AddCollectible(CollectibleType.TMTRAINER);
+            pickup.Morph(EntityType.PICKUP, PickupVariant.COLLECTIBLE, CollectibleType.SAD_ONION, true);
+            player.RemoveCollectible(CollectibleType.TMTRAINER);
+            spawnEffect(EffectVariant.POOF_1, 0, pickup.Position);
+            sfxManager.Play(SoundEffect.EDEN_GLITCH);
+        },
+        () => 6
+    ).setName("Glitch"),
+    new MomentuumSkill<TargetEntity>(
+        (player) => {
+            let collectibles = getEntities(EntityType.PICKUP, PickupVariant.COLLECTIBLE)
+                .map(ent => ent.ToPickup()).filter(pickup => pickup != undefined)
+                .filter(pickup => player.Position.DistanceSquared(pickup.Position) <= MomentuumSkillsRadiusSq && !isGlitchedCollectible(pickup) &&
+                    pickup.SubType != CollectibleType.NULL && itemConfig.GetCollectible(pickup.SubType)?.Type == ItemType.PASSIVE)
+                .filter(pickup => Utils.playerHasLemegethonWisp(player, pickup.SubType)) // No duplicate wisps
+                .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
+            return collectibles[0];
+        },
+        (player, target) => {
+            let pickup = target?.ToPickup(); if (!pickup) return;
+            player.AddItemWisp(pickup.SubType, player.Position);
+        },
+        () => 4
+    ).setName("CopyItem"),
+    new MomentuumSkill<TargetEntity>(
+        (player) => {
+            let collectibles = getEntities(EntityType.PICKUP)
+                .map(ent => ent.ToPickup()).filter(pickup => pickup != undefined)
+                .filter(pickup => player.Position.DistanceSquared(pickup.Position) <= MomentuumSkillsRadiusSq && !isCollectible(pickup) && pickup.Price == 0)
+                .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
+            return collectibles[0];
+        },
+        (player, target) => {
+            let pickup = target?.ToPickup(); if (!pickup) return;
+            let pos = game.GetRoom().FindFreePickupSpawnPosition(pickup.Position);
+            spawnPickup(pickup.Variant, 0, pos);
+        },
+        () => 2
+    ).setName("CopyPickup"),
+    new MomentuumSkill<TargetEntity>(
+        (player) => {
+            let collectibles = getEntities(EntityType.PICKUP, PickupVariant.COLLECTIBLE)
+                .filter(ent => player.Position.DistanceSquared(ent.Position) <= MomentuumSkillsRadiusSq && ent.SubType != CollectibleType.NULL && ent.ToPickup()?.Price == 0)
+                .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
+            return collectibles[0]?.ToPickup();
+        },
+        (player, target) => {
+            let pickup = target?.ToPickup(); if (!pickup) return;
+            let possibleStats = [...MomentummConsumedStatsValues.keys()];
+            let statsGained = []
+            for (let i = 0; i < 2; i++) {
+                let stat = getRandomArrayElementAndRemove(possibleStats, player.GetCollectibleRNG(ModEnums.COLLECTIBLE_MOMENTUUM));
+                statsGained.push(stat);
+                if (possibleStats.length == 0) break;
+            }
+            let momentuumStats = defaultMapGetPlayer(v.run.MomentuumConsumedStats, player);
+            statsGained.forEach(stat => momentuumStats.set(stat, momentuumStats.getAndSetDefault(stat) + 1));
+            mapSetPlayer(v.run.MomentuumConsumedStats, player, momentuumStats);
+            if (pickup.OptionsPickupIndex != 0) getPickups(PickupVariant.COLLECTIBLE).forEach(pickup2 => {
+                if (pickup2.OptionsPickupIndex == pickup.OptionsPickupIndex) {
+                    pickup2.Remove();
+                    spawnEffect(EffectVariant.POOF_1, 0, pickup2.Position);
+                }
+            });
+            else pickup.Remove();
+            player.AddCacheFlags(addFlag(CacheFlag.ALL));
+            player.EvaluateItems();
+        },
+        () => 3
+    ).setName("Consume"),
+    new MomentuumSkill<TargetEntity>(
+        (player) => {
+            let collectibles = getEntities(EntityType.PICKUP)
+                .filter(ent => player.Position.DistanceSquared(ent.Position) <= MomentuumSkillsRadiusSq && ent.SubType != CollectibleType.NULL && (ent.ToPickup()?.Price ?? 0) != 0)
+                .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
+            return collectibles[0]?.ToPickup();
+        },
+        (player, target) => {
+            let pickup = target?.ToPickup(); if (!pickup) return;
+            pickup.Price = 0;
+        },
+        (player, target) => {
+            let pickup = target?.ToPickup(); if (!pickup) return 0;
+            if (!pickup.Price) return 0;
+            let coinsPrice = pickup.Price < 0 ? 15 : pickup.Price;
+            return math.ceil(coinsPrice / 7) * 2;
+        }
+    ).setName("Free"),
     new MomentuumSkill<TargetEmpty>(
         (player) => {
             return getPocketItems(player).some(pid => pid.type == PocketItemType.CARD && canCardBecomeMomentuumCard(pid.subType)) ? {} : undefined;
@@ -342,6 +334,19 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
         },
         () => 1
     ).setName("Pill"),
+    new MomentuumSkill<TargetEmpty>(
+        (player) => {
+            return getPlayerTrinkets(player).some(trinket => !isGoldenTrinketType(trinket)) ? {} : undefined;
+        },
+        (player) => {
+            getPlayerTrinkets(player).forEach(trinket => {
+                player.TryRemoveTrinket(trinket);
+                let pos = game.GetRoom().FindFreePickupSpawnPosition(player.Position, 20);
+                spawnTrinket(getGoldenTrinketType(trinket), pos);
+            });
+        },
+        () => 6
+    ).setName("Gilding"),
     new MomentuumSkill<TargetEmpty>(
         () => {
             if (game.IsGreedMode()) return undefined;
@@ -380,19 +385,6 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
     ).setName("Cleanse"),
     new MomentuumSkill<TargetEmpty>(
         (player) => {
-            return getPlayerTrinkets(player).some(trinket => !isGoldenTrinketType(trinket)) ? {} : undefined;
-        },
-        (player) => {
-            getPlayerTrinkets(player).forEach(trinket => {
-                player.TryRemoveTrinket(trinket);
-                let pos = game.GetRoom().FindFreePickupSpawnPosition(player.Position, 20);
-                spawnTrinket(getGoldenTrinketType(trinket), pos);
-            });
-        },
-        () => 6
-    ).setName("Gilding"),
-    new MomentuumSkill<TargetEmpty>(
-        (player) => {
             return !player.IsFlying() ? {} : undefined;
         },
         (player) => {
@@ -404,24 +396,74 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
         (player) => {
             let emptyHearts = player.GetMaxHearts() - player.GetHearts();
             let charges = defaultMapGetPlayer(v.run.MomentuumCharges, player);
-            if (emptyHearts != 0 && charges > 0) return math.min(emptyHearts, charges * 2);
+            if (emptyHearts != 0 && charges > 0) return math.min(emptyHearts, charges - 1);
             return undefined;
         },
         (player, target) => {
             player.AddHearts(target ?? 0);
             sfxManager.Play(SoundEffect.VAMP_GULP);
         },
-        (player, target) => math.ceil((target ?? 0) / 2)
+        (player, target) => (target ?? 0) + 1
     ).setName("Heal"),
+    new MomentuumSkill<TargetEntity | TargetEmpty>(
+        (player) => {
+            if (defaultMapGetPlayer(v.run.MomentuumCharges, player) == getMaxMomentuumCharges(player)) return undefined;
+            let collectibles = getEntities(EntityType.PICKUP, PickupVariant.COLLECTIBLE)
+                .filter(ent => player.Position.DistanceSquared(ent.Position) <= MomentuumSkillsRadiusSq && ent.SubType != CollectibleType.NULL && ent.ToPickup()?.Price == 0)
+                .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
+            if (collectibles.length > 0) return collectibles[0]?.ToPickup();
+            else if (player.HasCollectible(CollectibleType.SHARP_PLUG)) return {};
+            return undefined;
+        },
+        (player, target) => {
+            let charges = 0;
+            if (isPickup(target)) {
+                let pickup = target;
+                if (pickup.SubType == ModEnums.COLLECTIBLE_MOMENTUUM) charges = 12
+                else if ([CollectibleType.DATAMINER, CollectibleType.TMTRAINER].includes(pickup.SubType)) charges = getRandomInt(1, getMaxMomentuumCharges(player), pickup.DropSeed);
+                else charges = 2 + (itemConfig.GetCollectible(pickup.SubType)?.Quality ?? 0) * 2;
+                if (pickup.OptionsPickupIndex != 0) getPickups(PickupVariant.COLLECTIBLE).forEach(pickup2 => {
+                    if (pickup2.OptionsPickupIndex == pickup.OptionsPickupIndex) {
+                        pickup2.Remove();
+                        spawnEffect(EffectVariant.POOF_1, 0, pickup2.Position);
+                    }
+                });
+                else pickup.Remove();
+            } else if (typeof target == "object" && player.HasCollectible(CollectibleType.SHARP_PLUG)) {
+                player.TakeDamage(2, addFlag(DamageFlag.RED_HEARTS, DamageFlag.ISSAC_HEART, DamageFlag.INVINCIBLE, DamageFlag.IV_BAG, DamageFlag.NO_MODIFIERS), EntityRef(player), 30);
+                charges = 1;
+            }
+            if (charges > 0) {
+                addMomentuumCharges(player, charges);
+                sfxManager.Play(SoundEffect.BATTERY_CHARGE);
+                let effect = spawnEffect(EffectVariant.BATTERY, 0, player.Position.add(Vector(0, -40)));
+                effect.SpriteScale = Vector(0.8, 0.8);
+                effect.GetSprite().PlaybackSpeed = 0.7;
+                effect.DepthOffset = 200;
+            }
+        },
+        () => 0
+    ).setName("Charge"),
+    // new MomentuumSkill<TargetEmpty>(
+    //     () => {
+    //         return {};
+    //     },
+    //     (player) => {
+    //         game.GetRoom().MamaMegaExplosion(player.Position, player);
+    //     },
+    //     () => game.GetRoom().GetType() == RoomType.BOSS ? 10 : 6
+    // ).setName("MamaMega"),
     new MomentuumSkill<TargetEmpty>(
         () => {
             return {};
         },
         (player) => {
-            game.GetRoom().MamaMegaExplosion(player.Position, player);
+            let bomb = player.FireBomb(player.Position, VectorZero, player);
+            bomb.SetExplosionCountdown(0);
+            player.TakeDamage(1, DamageFlag.FAKE, EntityRef(player), 0);
         },
-        () => game.GetRoom().GetType() == RoomType.BOSS ? 10 : 6
-    ).setName("MamaMega"),
+        () => 2
+    ).setName("Bomb"),
 ]
 
 // #region Resources and data
@@ -770,7 +812,6 @@ export class Momentuum extends ModFeature {
         }
         // Get skills to render
         let currentSkillIndexesIndex = skillIndexes.findIndex(si => si == currentSkillChoice);
-        // let skillIndexesIndexesToRender = [currentSkillIndexesIndex - 1, currentSkillIndexesIndex, currentSkillIndexesIndex + 1, currentSkillIndexesIndex + 2]
         let skillIndexesIndexesToRender = [currentSkillIndexesIndex - 2, currentSkillIndexesIndex - 1, currentSkillIndexesIndex, currentSkillIndexesIndex + 1]
             .map(ind => (ind + skillIndexes.length) % skillIndexes.length);
         let skillsToRender = skillIndexesIndexesToRender.map(sii => MomentuumSkills[skillIndexes[sii] ?? 0]);
