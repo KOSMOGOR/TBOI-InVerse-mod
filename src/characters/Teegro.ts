@@ -1,6 +1,6 @@
 import { anyPlayerHasCollectible, Callback, CallbackCustom, clamp, copyColor, copyKColor, DEFAULT_ITEM_POOL_TYPE, DefaultMap, defaultMapGetPlayer, game, getAdjustedPrice, getCharacters, getEffects, getGoldenTrinketType, getPickups, getPlayersOfType, getRandomArrayElement, getRandomFromWeightedArray, getRandomInt, getRandomVector, getRoomDescriptorReadOnly, getRoomItemPoolType, hasCurse, hasFlag, inMineShaft, inRoomType, iRange, isActionPressedOnAnyInput, isChest, itemConfig, K_COLORS, ModCallbackCustom, ModFeature, newRNG, onStage, repeat, sfxManager, spawnCollectibleFromPool, spawnEffect, spawnPickup, vectorEquals, VectorZero, type PickupIndex, type PlayerIndex } from "isaacscript-common";
 import { mod } from "../mod";
-import { BombSubType, ButtonAction, CacheFlag, CardType, CoinSubType, CollectibleType, DamageFlag, EffectVariant, EntityCollisionClass, EntityFlag, EntityType, GridRoom, HeartSubType, ItemConfigTag, KeySubType, LevelCurse, LevelStage, ModCallback, PickupPrice, PickupVariant, RoomType, SoundEffect, TrinketType } from "isaac-typescript-definitions";
+import { BombSubType, ButtonAction, CacheFlag, CardType, CoinSubType, CollectibleType, DamageFlag, EffectVariant, EntityCollisionClass, EntityFlag, EntityType, GridRoom, HeartSubType, ItemConfigTag, KeySubType, LevelCurse, LevelStage, ModCallback, PickupPrice, PickupVariant, PlayerVariant, RoomType, SoundEffect, TrinketType, type ActiveSlot, type UseFlag } from "isaac-typescript-definitions";
 import { ModEnums } from "../ModEnums";
 import { CallbackPostPlayerRenderAbove } from "../misc/AdditionalCallbacks";
 import { Utils } from "../misc/Utils";
@@ -196,7 +196,7 @@ function GenerateHunterChestReward(rng: RNG): {Variant: PickupVariant, SubType: 
 
 const v = {
     run: {
-        keyShards: 4,
+        keyShards: 0,
         tookDamageThisRoom: false
     },
     level: {
@@ -317,11 +317,11 @@ export class Teegro extends ModFeature {
         }
     }
 
-    @Callback(ModCallback.POST_PLAYER_INIT)
+    @CallbackCustom(ModCallbackCustom.POST_PLAYER_INIT_FIRST, PlayerVariant.PLAYER, ModEnums.PLAYER_TEEGRO)
     PostPlayerInit(player: EntityPlayer) {
-        if (player.GetPlayerType() != ModEnums.PLAYER_TEEGRO) return;
         player.AddNullCostume(TeegroHair);
         player.AddNullCostume(TeegroTail);
+        v.run.keyShards += 4;
     }
 
     @CallbackCustom(ModCallbackCustom.POST_NEW_ROOM_REORDERED)
@@ -644,6 +644,12 @@ export class Teegro extends ModFeature {
         return;
     }
 
+    @Callback(ModCallback.PRE_USE_ITEM, CollectibleType.GENESIS)
+    OnUseGenesis(collectibleType: CollectibleType, rng: RNG, player: EntityPlayer, useFlags: BitFlags<UseFlag>, activeSlot: ActiveSlot, customVarData: int) {
+        v.run.keyShards = 0;
+        return undefined;
+    }
+
     @Callback(ModCallback.POST_PICKUP_RENDER, ModEnums.PICKUP_HUNTER_CHEST)
     GuppysEyeFunctionality(pickup: EntityPickup) {
         if (!anyPlayerHasCollectible(CollectibleType.GUPPYS_EYE) || pickup.GetSprite().GetAnimation() != "Idle") return;
@@ -683,9 +689,9 @@ export class Teegro extends ModFeature {
 
     @CallbackPostPlayerRenderAbove()
     RenderHunterKeyCount(player: EntityPlayer) {
-        if (player.GetPlayerType() != ModEnums.PLAYER_TEEGRO || !game.GetHUD().IsVisible()) return;
-        let sprite = defaultMapGetPlayer(hunterKeysCountSprites, player);
         let shards = v.run.keyShards;
+        if (player.GetPlayerType() != ModEnums.PLAYER_TEEGRO && shards == 0 || !game.GetHUD().IsVisible()) return;
+        let sprite = defaultMapGetPlayer(hunterKeysCountSprites, player);
         let pos = Utils.worldToMirrorScreen(player.Position).add(Vector(-5, -40));
         let scale = 0.5;
         let kColor = copyKColor(K_COLORS.White);

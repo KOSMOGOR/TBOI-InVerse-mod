@@ -1,10 +1,11 @@
 import { ActiveSlot, ButtonAction, CacheFlag, CardType, CollectibleAnimation, CollectibleType, DamageFlag, Direction, DoorSlot, DoorVariant, EffectVariant, EntityType, ItemType, LaserVariant, LevelCurse, LevelStage, ModCallback, Music, PickupVariant, PlayerItemAnimation, RoomType, SoundEffect, TrinketType, UseFlag } from "isaac-typescript-definitions";
-import { addFlag, addPlayerStat, arrayEquals, Callback, CallbackCustom, checkFamiliar, clamp, copyColor, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getGoldenTrinketType, getPickups, getPlayers, getPlayerTrinkets, getPocketItems, getRandomArrayElementAndRemove, getRandomInt, getRoomGridIndex, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, gridCoordinatesToWorldPosition, hasFlag, inRange, inRoomType, isActionPressedOnAnyInput, isCollectible, isEmptyFlag, isGlitchedCollectible, isGoldenTrinketType, isPickup, isPlayerAbleToAim, isSecretRoomType, isVector, itemConfig, K_COLORS, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, musicManager, PlayerIndex, PocketItemType, removeFlag, sfxManager, spawnEffect, spawnPickup, spawnTrinket, VectorZero } from "isaacscript-common";
+import { addFlag, addPlayerStat, arrayEquals, Callback, CallbackCustom, canCharacterHaveRedHearts, checkFamiliar, clamp, copyColor, DefaultMap, defaultMapGetPlayer, directionToDegrees, game, getDoors, getEntities, getGoldenTrinketType, getPickups, getPlayers, getPlayerTrinkets, getPocketItems, getRandomArrayElementAndRemove, getRandomInt, getRoomGridIndex, getRoomItemPoolType, getRoomShapeDoorSlotCoordinates, getStage, gridCoordinatesToWorldPosition, hasFlag, inRange, inRoomType, isActionPressedOnAnyInput, isChest, isCollectible, isEmptyFlag, isGlitchedCollectible, isGoldenTrinketType, isPickup, isPlayerAbleToAim, isSecretRoomType, isVector, itemConfig, K_COLORS, mapDeletePlayer, mapGetPlayer, mapHasPlayer, mapSetPlayer, ModCallbackCustom, ModFeature, musicManager, PlayerIndex, PocketItemType, removeFlag, sfxManager, spawnEffect, spawnPickup, spawnTrinket, VectorZero } from "isaacscript-common";
 import { ModEnums } from "../ModEnums";
 import { Utils } from "../misc/Utils";
 import { InnateItems } from "../misc/InnateItems";
 import { CallbackPostPlayerRenderAbove } from "../misc/AdditionalCallbacks";
 import { Unlocks } from "../misc/Unlocks";
+import { mod } from "../mod";
 
 // #region Consts
 
@@ -202,11 +203,12 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
     ).setName("RerollItem"),
     new MomentuumSkill<TargetEntity>(
         (player) => {
-            let collectibles = getEntities(EntityType.PICKUP)
+            let pickups = getEntities(EntityType.PICKUP)
                 .map(ent => ent.ToPickup()).filter(pickup => pickup != undefined)
                 .filter(pickup => player.Position.DistanceSquared(pickup.Position) <= MomentuumSkillsRadiusSq && !isCollectible(pickup) && pickup.Price == 0)
+                .filter(pickup => pickup.GetSprite().GetAnimation() != "Open") // No open chests
                 .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
-            return collectibles[0];
+            return pickups[0];
         },
         (player, target) => {
             let pickup = target?.ToPickup(); if (!pickup) return;
@@ -250,11 +252,12 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
     ).setName("CopyItem"),
     new MomentuumSkill<TargetEntity>(
         (player) => {
-            let collectibles = getEntities(EntityType.PICKUP)
+            let pickups = getEntities(EntityType.PICKUP)
                 .map(ent => ent.ToPickup()).filter(pickup => pickup != undefined)
                 .filter(pickup => player.Position.DistanceSquared(pickup.Position) <= MomentuumSkillsRadiusSq && !isCollectible(pickup) && pickup.Price == 0)
+                .filter(pickup => pickup.GetSprite().GetAnimation() != "Open") // No open chests
                 .toSorted((a, b) => player.Position.DistanceSquared(a.Position) - player.Position.DistanceSquared(b.Position));
-            return collectibles[0];
+            return pickups[0];
         },
         (player, target) => {
             let pickup = target?.ToPickup(); if (!pickup) return;
@@ -289,6 +292,8 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
                 }
             });
             else pickup.Remove();
+            mod.startAmbush();
+            mod.runNextGameFrame(() => sfxManager.Stop(SoundEffect.SHELL_GAME));
             player.AddCacheFlags(addFlag(CacheFlag.ALL));
             player.EvaluateItems();
         },
@@ -400,6 +405,7 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
     new MomentuumSkill<TargetInt>(
         (player) => {
             let emptyHearts = player.GetMaxHearts() - player.GetHearts();
+            if (canCharacterHaveRedHearts(player.GetPlayerType())) emptyHearts += player.GetBoneHearts() * 2;
             let charges = defaultMapGetPlayer(v.run.MomentuumCharges, player);
             if (emptyHearts != 0 && charges > 0) return math.min(emptyHearts, charges - 1);
             return undefined;
@@ -434,6 +440,8 @@ const MomentuumSkills: MomentuumSkill<any>[] = [
                     }
                 });
                 else pickup.Remove();
+                mod.startAmbush();
+                mod.runNextGameFrame(() => sfxManager.Stop(SoundEffect.SHELL_GAME));
             } else if (typeof target == "object" && player.HasCollectible(CollectibleType.SHARP_PLUG)) {
                 player.TakeDamage(2, addFlag(DamageFlag.RED_HEARTS, DamageFlag.ISSAC_HEART, DamageFlag.INVINCIBLE, DamageFlag.IV_BAG, DamageFlag.NO_MODIFIERS), EntityRef(player), 30);
                 charges = 1;
@@ -692,6 +700,12 @@ export class Momentuum extends ModFeature {
     @CallbackCustom(ModCallbackCustom.POST_PLAYER_COLLECTIBLE_ADDED, CollectibleType.NINE_VOLT)
     OnGetNineVolt(player: EntityPlayer) {
         addMomentuumCharges(player, 12);
+    }
+
+    @Callback(ModCallback.POST_USE_ITEM, CollectibleType.GENESIS)
+    OnUseGenesis(collectibleType: CollectibleType, rng: RNG, player: EntityPlayer, useFlags: BitFlags<UseFlag>, activeSlot: int, customVarData: int) {
+        v.run.MomentuumCharges.clear();
+        return undefined;
     }
 
     // #region Familiar
