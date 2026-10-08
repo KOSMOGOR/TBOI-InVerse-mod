@@ -92,6 +92,11 @@ export function addMomentuumCharges(player: EntityPlayer, charges: int) {
     mapSetPlayer(v.run.MomentuumCharges, player, newCharges);
 }
 
+function needHoldForPlayer(player: EntityPlayer) {
+    let mult = player.HasCollectible(CollectibleType.CAR_BATTERY) ? 0.5 : 1;
+    return NeedHold * mult;
+}
+
 function getMomentuumCardFromRegular(card: CardType): CardType | undefined {
     if (inRange(card, CardType.REVERSE_FOOL, CardType.REVERSE_WORLD)) card += CardType.FOOL - CardType.REVERSE_FOOL;
     if (CardType.FOOL > card || card > CardType.WORLD) return undefined;
@@ -568,8 +573,10 @@ export class Momentuum extends ModFeature {
         let holding = mapGetPlayer(Holding, player);
         if (holding && player.GetActiveItem(ActiveSlot.PRIMARY) != ModEnums.COLLECTIBLE_MOMENTUUM) player.UseActiveItem(ModEnums.COLLECTIBLE_MOMENTUUM, UseFlag.NO_ANIMATION);
         else if (holding && Input.IsActionPressed(ButtonAction.ITEM, player.ControllerIndex) && player.GetActiveItem(ActiveSlot.PRIMARY) == ModEnums.COLLECTIBLE_MOMENTUUM) {
-            mapSetPlayer(Holding, player, math.min(holding + 1, NeedHold));
-            if (mapGetPlayer(Holding, player) == NeedHold) {
+            let needHold = needHoldForPlayer(player);
+            let newHolding = math.min(holding + 1, needHold);
+            mapSetPlayer(Holding, player, newHolding);
+            if (newHolding == needHold) {
                 player.UseActiveItem(ModEnums.COLLECTIBLE_MOMENTUUM, UseFlag.NO_ANIMATION);
                 this.UseMomentuumSkill(player);
             }
@@ -767,7 +774,7 @@ export class Momentuum extends ModFeature {
         let chargeSprites = defaultMapGetPlayer(MomentuumChargeSprites, player);
         let color = copyColor(chargeSprites.base.Color);
         let targetAlpha = forceMaxAlpha > 0 ? 1 : tabHoldTime / 30; // 0 => 0.3, 30 => 1
-        color.A = clamp(Utils.moveTowards(color.A, targetAlpha, AlphaChangeSpeed), 0.3, 1);
+        color.A = clamp(Utils.moveTowards(color.A, targetAlpha, AlphaChangeSpeed), 0, 1);
         chargeSprites.base.Color = color;
         chargeSprites.base.Render(pos);
         let skill = MomentuumSkills[defaultMapGetPlayer(v.run.MomentuumSkillChoice, player)];
@@ -858,7 +865,7 @@ export class Momentuum extends ModFeature {
         let hold = mapGetPlayer(Holding, player) ?? 0;
         let bar = defaultMapGetPlayer(ChargeBarSprites, player);
         if (hold > HoldingThreshold) {
-            let perc = math.floor(100 * hold / NeedHold);
+            let perc = math.floor(100 * hold / needHoldForPlayer(player));
             if (perc < 100) bar.SetFrame("Charging", perc);
         } else if (bar.GetAnimation() == "Charging" && !bar.IsFinished("Disappear")) bar.Play("Disappear", true);
         bar.Render(Utils.worldToMirrorScreen(player.Position).add(Vector(20, -30)));

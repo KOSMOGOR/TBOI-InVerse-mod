@@ -1,20 +1,14 @@
 <sounds root="sfx/">
-	<sound name="Fool192000"> <sample weight="1" path="Fool/192000.wav" /> </sound>
 	<sound name="Fool6am"> <sample weight="1" path="Fool/6am.wav" /> </sound>
 	<sound name="FoolA"> <sample weight="1" path="Fool/a.wav" /> </sound>
 	<sound name="FoolAmerikaya"> <sample weight="1" path="Fool/amerikaya.wav" /> </sound>
 	<sound name="FoolAmongus"> <sample weight="1" path="Fool/amongus.wav" /> </sound>
-	<sound name="FoolAnnouncement"> <sample weight="1" path="Fool/announcement.wav" /> </sound>
-	<sound name="FoolAreyoustupid"> <sample weight="1" path="Fool/areyoustupid.wav" /> </sound>
-	<sound name="FoolAsgore"> <sample weight="1" path="Fool/asgore.wav" /> </sound>
-	<sound name="FoolBadapple"> <sample weight="1" path="Fool/badapple.wav" /> </sound>
 	<sound name="FoolBarinfart"> <sample weight="1" path="Fool/barinfart.wav" /> </sound>
 	<sound name="FoolBlackspiderman"> <sample weight="1" path="Fool/blackspiderman.wav" /> </sound>
 	<sound name="FoolBlya"> <sample weight="1" path="Fool/blya.wav" /> </sound>
 	<sound name="FoolBodydiscovery"> <sample weight="1" path="Fool/bodydiscovery.wav" /> </sound>
 	<sound name="FoolBogosbinted"> <sample weight="1" path="Fool/bogosbinted.wav" /> </sound>
 	<sound name="FoolBone"> <sample weight="1" path="Fool/bone.wav" /> </sound>
-	<sound name="FoolBopeebo"> <sample weight="1" path="Fool/bopeebo.wav" /> </sound>
 	<sound name="FoolBruh"> <sample weight="1" path="Fool/bruh.wav" /> </sound>
 	<sound name="FoolCaramelldancen"> <sample weight="1" path="Fool/caramelldancen.wav" /> </sound>
 	<sound name="FoolCave1"> <sample weight="1" path="Fool/Cave1.wav" /> </sound>
@@ -25,20 +19,11 @@
 	<sound name="FoolCave5"> <sample weight="1" path="Fool/Cave5.wav" /> </sound>
 	<sound name="FoolCave8"> <sample weight="1" path="Fool/Cave8.wav" /> </sound>
 	<sound name="FoolChickenjockey"> <sample weight="1" path="Fool/chickenjockey.wav" /> </sound>
-	<sound name="FoolChicken_jockey"> <sample weight="1" path="Fool/chicken_jockey.wav" /> </sound>
-	<sound name="FoolChipichapa"> <sample weight="1" path="Fool/chipichapa.wav" /> </sound>
-	<sound name="FoolChugjug"> <sample weight="1" path="Fool/chugjug.wav" /> </sound>
 	<sound name="FoolCooked"> <sample weight="1" path="Fool/cooked.wav" /> </sound>
-	<sound name="FoolCrocodilo"> <sample weight="1" path="Fool/crocodilo.wav" /> </sound>
-	<sound name="FoolDaynnight"> <sample weight="1" path="Fool/daynnight.wav" /> </sound>
 	<sound name="FoolDexter-meme"> <sample weight="1" path="Fool/dexter-meme.wav" /> </sound>
 	<sound name="FoolDor"> <sample weight="1" path="Fool/dor.wav" /> </sound>
-	<sound name="FoolDorime"> <sample weight="1" path="Fool/dorime.wav" /> </sound>
-	<sound name="FoolDrowning"> <sample weight="1" path="Fool/drowning.wav" /> </sound>
-	<sound name="FoolFade"> <sample weight="1" path="Fool/fade.wav" /> </sound>
 	<sound name="FoolFah"> <sample weight="1" path="Fool/fah.wav" /> </sound>
 	<sound name="FoolFart"> <sample weight="1" path="Fool/fart.wav" /> </sound>
-	<sound name="FoolFellas"> <sample weight="1" path="Fool/fellas.wav" /> </sound>
 	<sound name="FoolFish"> <sample weight="1" path="Fool/fish.wav" /> </sound>
 	<sound name="FoolFith"> <sample weight="1" path="Fool/fith.wav" /> </sound>
 	<sound name="FoolFlashbang"> <sample weight="1" path="Fool/flashbang.wav" /> </sound>
@@ -49,56 +34,36 @@
 	<sound name="FoolGoodbye"> <sample weight="1" path="Fool/goodbye.wav" /> </sound>
 	<sound name="FoolGtfo"> <sample weight="1" path="Fool/gtfo.wav" /> </sound>
 	<sound name="FoolGuts"> <sample weight="1" path="Fool/guts.wav" /> </sound>
-	<sound name="FoolHaro"> <sample weight="1" path="Fool/haro.wav" /> </sound>
 	<sound name="FoolHellnah"> <sample weight="1" path="Fool/hellnah.wav" /> </sound>
-	<sound name="FoolHouse"> <sample weight="1" path="Fool/house.wav" /> </sound>
 	<sound name="FoolHuh"> <sample weight="1" path="Fool/huh.wav" /> </sound>
-	<sound name="FoolHumscare"> <sample weight="1" path="Fool/humscare.wav" /> </sound>
 	<sound name="FoolHurhur"> <sample weight="1" path="Fool/hurhur.wav" /> </sound>
 	<sound name="FoolIntheend"> <sample weight="1" path="Fool/intheend.wav" /> </sound>
 	<sound name="FoolJumpscare"> <sample weight="1" path="Fool/jumpscare.wav" /> </sound>
-	<sound name="FoolKiller"> <sample weight="1" path="Fool/killer.wav" /> </sound>
 	<sound name="FoolLegobreak"> <sample weight="1" path="Fool/legobreak.wav" /> </sound>
 	<sound name="FoolLetmeknow"> <sample weight="1" path="Fool/letmeknow.wav" /> </sound>
 	<sound name="FoolLobotomy"> <sample weight="1" path="Fool/lobotomy.wav" /> </sound>
 	<sound name="FoolLobster"> <sample weight="1" path="Fool/lobster.wav" /> </sound>
-	<sound name="FoolMegalovania"> <sample weight="1" path="Fool/megalovania.wav" /> </sound>
 	<sound name="FoolMetalpipe"> <sample weight="1" path="Fool/metalpipe.wav" /> </sound>
-	<sound name="FoolNerd"> <sample weight="1" path="Fool/nerd.wav" /> </sound>
-	<sound name="FoolNether"> <sample weight="1" path="Fool/nether.wav" /> </sound>
 	<sound name="FoolNonono"> <sample weight="1" path="Fool/nonono.wav" /> </sound>
 	<sound name="FoolNumber15"> <sample weight="1" path="Fool/number15.wav" /> </sound>
 	<sound name="FoolOiiai1"> <sample weight="1" path="Fool/oiiai1.wav" /> </sound>
 	<sound name="FoolOiiai2"> <sample weight="1" path="Fool/oiiai2.wav" /> </sound>
-	<sound name="FoolOiiai3"> <sample weight="1" path="Fool/oiiai3.wav" /> </sound>
 	<sound name="FoolOioeoi"> <sample weight="1" path="Fool/oioeoi.wav" /> </sound>
-	<sound name="FoolOmfg"> <sample weight="1" path="Fool/omfg.wav" /> </sound>
 	<sound name="FoolOof"> <sample weight="1" path="Fool/oof.wav" /> </sound>
 	<sound name="FoolPh"> <sample weight="1" path="Fool/ph.wav" /> </sound>
 	<sound name="FoolPing"> <sample weight="1" path="Fool/ping.wav" /> </sound>
-	<sound name="FoolPizza"> <sample weight="1" path="Fool/pizza.wav" /> </sound>
 	<sound name="FoolProwler"> <sample weight="1" path="Fool/prowler.wav" /> </sound>
-	<sound name="FoolRickrolled"> <sample weight="1" path="Fool/rickrolled.wav" /> </sound>
 	<sound name="FoolRizzx"> <sample weight="1" path="Fool/rizzx.wav" /> </sound>
-	<sound name="FoolSahur"> <sample weight="1" path="Fool/sahur.wav" /> </sound>
-	<sound name="FoolSans"> <sample weight="1" path="Fool/sans.wav" /> </sound>
 	<sound name="FoolScarypiano"> <sample weight="1" path="Fool/scarypiano.wav" /> </sound>
 	<sound name="FoolSisyphus"> <sample weight="1" path="Fool/sisyphus.wav" /> </sound>
 	<sound name="FoolSnap"> <sample weight="1" path="Fool/snap.wav" /> </sound>
 	<sound name="FoolSnore"> <sample weight="1" path="Fool/snore.wav" /> </sound>
 	<sound name="FoolSorting"> <sample weight="1" path="Fool/sorting.wav" /> </sound>
-	<sound name="FoolSpeedrun"> <sample weight="1" path="Fool/speedrun.wav" /> </sound>
 	<sound name="FoolSpotifyad"> <sample weight="1" path="Fool/spotifyad.wav" /> </sound>
 	<sound name="FoolSugoma"> <sample weight="1" path="Fool/sugoma.wav" /> </sound>
-	<sound name="FoolThickofit"> <sample weight="1" path="Fool/thickofit.wav" /> </sound>
 	<sound name="FoolTiktok"> <sample weight="1" path="Fool/tiktok.wav" /> </sound>
-	<sound name="FoolTralalelo"> <sample weight="1" path="Fool/tralalelo.wav" /> </sound>
-	<sound name="FoolTriplebaka"> <sample weight="1" path="Fool/triplebaka.wav" /> </sound>
-	<sound name="FoolUnity"> <sample weight="1" path="Fool/unity.wav" /> </sound>
 	<sound name="FoolVineboom"> <sample weight="1" path="Fool/vineboom.wav" /> </sound>
 	<sound name="FoolWhathow"> <sample weight="1" path="Fool/whathow.wav" /> </sound>
-	<sound name="FoolWideputin"> <sample weight="1" path="Fool/wideputin.wav" /> </sound>
 	<sound name="FoolWinning"> <sample weight="1" path="Fool/winning.wav" /> </sound>
-	<sound name="FoolWizard"> <sample weight="1" path="Fool/wizard.wav" /> </sound>
 	<sound name="FoolYippee"> <sample weight="1" path="Fool/yippee.wav" /> </sound>
 </sounds>
