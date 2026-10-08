@@ -8,15 +8,13 @@ import { MomentuumCards } from "./pocketItems/MomentuumCards";
 import { Teegro } from "./characters/Teegro";
 import { PostPlayerRenderAbove } from "./misc/AdditionalCallbacks";
 import { Unlocks } from "./misc/Unlocks";
-import { Debug } from "./misc/Debug";
 
 
 export function main(): void {
     initModFeatures(mod, [PostPlayerRenderAbove]);
-    initModFeatures(mod, [Debug]);
     initModFeatures(mod, [InnateItems, Unlocks]);
     initModFeatures(mod, [Dream, Momentuum, MomentuumCards]);
-    // tainted Dream will be here
+    // Tainted Dream will be here
     initModFeatures(mod, [DreamsHandbag]);
     initModFeatures(mod, [Teegro]);
 }
